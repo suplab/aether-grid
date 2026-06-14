@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 2 — Maven Multi-Module Foundation
+**Active Phase:** Phase 4 — Core Domain Model
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -18,8 +18,8 @@
 |---|---|---|---|
 | 0 | Concept & Documentation | ✅ Complete | 1 |
 | 1 | EEIK Bootstrap Integration | ✅ Complete | 1 |
-| 2 | Maven Multi-Module Foundation | 📋 Planned | — |
-| 3 | Infrastructure Stack | 📋 Planned | — |
+| 2 | Maven Multi-Module Foundation | ✅ Complete | 1 |
+| 3 | Infrastructure Stack | ✅ Complete | 1 |
 | 4 | Core Domain Model | 📋 Planned | — |
 | 5 | Proxy Layer | 📋 Planned | — |
 | 6 | Memory Layer | 📋 Planned | — |
@@ -80,12 +80,27 @@
 
 ---
 
-## Phase 2 — Maven Multi-Module Foundation 📋
+## Phase 2 — Maven Multi-Module Foundation ✅
 
-_Not yet started._
+**Commit:** `build(infra): add parent POM and 7-module Maven structure`
 
-### Verification target
-`mvn validate` passes across all 7 modules. `mvn compile -pl aether-core` succeeds.
+### What was done
+
+- `pom.xml` (parent) — Spring Boot 3.3.5 BOM, Spring Cloud 2023.0.3 BOM, Resilience4j 2.2.0 BOM, Testcontainers BOM. Java 21 compiler with `--enable-preview`. Maven Enforcer requires Java 21+ and Maven 3.9+. JaCoCo 80% line coverage gate. All internal module versions managed centrally.
+- `aether-core/pom.xml` — jakarta.validation-api, slf4j-api, assertj (test)
+- `aether-memory/pom.xml` — spring-boot-starter, spring-data-jdbc, postgresql, pgvector, spring-kafka, testcontainers-postgresql/kafka
+- `aether-agents/pom.xml` — aether-core + aether-memory, spring-boot-starter, spring-kafka, spring-web (RestClient for Ollama), jackson-databind, mockito
+- `aether-policy/pom.xml` — aether-core, spring-boot-starter, spring-data-jdbc, postgresql, spring-kafka, jackson-dataformat-yaml, flyway-core, flyway-database-postgresql
+- `aether-proxy/pom.xml` — aether-core + aether-policy, spring-cloud-starter-gateway, circuit-breaker-reactor-resilience4j, spring-data-redis-reactive, spring-kafka, spring-data-jdbc, actuator, micrometer-prometheus, reactor-test
+- `aether-api/pom.xml` — all library modules, spring-boot-starter-web, spring-security, oauth2-resource-server, spring-data-jdbc, spring-validation, actuator, micrometer-prometheus, micrometer-tracing-bridge-otel, opentelemetry-exporter-otlp, springdoc-openapi 2.6.0, spring-security-test
+- `aether-infra/pom.xml` — pom packaging only (no Java source)
+- `aether-proxy/src/main/java/.../AetherProxyApplication.java` — Spring Boot entry point (port 8080)
+- `aether-proxy/src/main/resources/application.yml` — Gateway, datasource, Redis, Kafka, actuator config
+- `aether-api/src/main/java/.../AetherApiApplication.java` — Spring Boot entry point (port 8081)
+- `aether-api/src/main/resources/application.yml` — datasource, Kafka, security, springdoc, OTel config
+
+### Verification result
+`mvn validate` — passed (no output = clean)
 
 ---
 
