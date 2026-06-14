@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 1 — EEIK Bootstrap Integration
+**Active Phase:** Phase 2 — Maven Multi-Module Foundation
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -17,7 +17,7 @@
 | Phase | Name | Status | Commits |
 |---|---|---|---|
 | 0 | Concept & Documentation | ✅ Complete | 1 |
-| 1 | EEIK Bootstrap Integration | 🔄 Next | — |
+| 1 | EEIK Bootstrap Integration | ✅ Complete | 1 |
 | 2 | Maven Multi-Module Foundation | 📋 Planned | — |
 | 3 | Infrastructure Stack | 📋 Planned | — |
 | 4 | Core Domain Model | 📋 Planned | — |
@@ -60,22 +60,23 @@
 
 ---
 
-## Phase 1 — EEIK Bootstrap Integration 🔄
+## Phase 1 — EEIK Bootstrap Integration ✅
 
-**Status:** Starting next
+**Commit:** `chore(bootstrap): integrate eeik governance layer — CLAUDE.md, memory, hooks, commands`
 
-### What will be done
+### What was done
 
-- Create `CLAUDE.md` from eeik-bootstrap `templates/PROJECT-CLAUDE.md` template, filled with AetherGrid context
-- Create all `.claude/memory/` files (7 files) seeded with AetherGrid terminology and decisions
-- Copy `.claude/agents/` (44 agents), `.claude/commands/` (19 slash commands), `.claude/hooks/` (4 hooks) from eeik-bootstrap
-- Create `aether.manifest.yaml` project manifest
-
-### Verification
-- `cat CLAUDE.md` — shows AetherGrid-specific project brief with correct tech stack and golden rules
-- `ls .claude/memory/` — shows all 7 memory files
-- `ls .claude/agents/ | wc -l` — shows 44 agents
-- Open Claude Code → ask "What is this project?" → answers with AetherGrid context from memory
+- `CLAUDE.md` — full project brief: Aether ecosystem description, tech stack, golden rules, slash commands, memory file index, prohibited patterns, docs sync rule
+- `.claude/memory/project-context.md` — service inventory (7 services/modules), Kafka topics, auth methods, local URLs, env var names, DB schema
+- `.claude/memory/domain-glossary.md` — 33 Aether-specific terms defined
+- `.claude/memory/decisions.md` — 8 key decisions recorded (D-001 through D-008)
+- `.claude/memory/constraints.md` — 10 EEIK golden rules + 8 Aether-specific hard constraints
+- `.claude/memory/patterns.md` — 8 approved patterns with code examples
+- `.claude/memory/tech-debt.md` — initialized (empty)
+- `.claude/memory/session-log.md` — seeded with Phase 0 and Phase 1 entries
+- `.claude/hooks/` — 4 safety hooks (pre-bash-guard, pre-write-guard, post-edit-check, on-stop)
+- `.claude/commands/` — 5 slash commands (/estimate, /review, /adr, /memory-update, /security-scan)
+- `aether.manifest.yaml` — EEIK project manifest (agent-platform, multi-agent AI, GDPR compliance)
 
 ---
 

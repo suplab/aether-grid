@@ -40,7 +40,7 @@
 
 ---
 
-## Phase 1 — EEIK Bootstrap Integration 🔄
+## Phase 1 — EEIK Bootstrap Integration ✅
 
 **Goal:** Every Claude Code session has full enterprise AI governance context from the first prompt.
 
@@ -312,5 +312,5 @@ These are tracked but not scoped for the current roadmap:
 
 ---
 
-*Last updated: Phase 0 — Concept & Documentation*
+*Last updated: Phase 1 — EEIK Bootstrap Integration*
 *See [Progress](progress.md) for live status · [Architecture](architecture.md) for technical detail*
