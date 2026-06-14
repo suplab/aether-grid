@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 6 — Memory Layer
+**Active Phase:** Phase 7 — Agent Subsystem
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -22,7 +22,7 @@
 | 3 | Infrastructure Stack | ✅ Complete | 1 |
 | 4 | Core Domain Model + LLM Abstraction | ✅ Complete | 1 |
 | 5 | Proxy Layer | ✅ Complete | 1 |
-| 6 | Memory Layer | 📋 Planned | — |
+| 6 | Memory Layer | ✅ Complete | 1 |
 | 7 | Agent Subsystem | 📋 Planned | — |
 | 8 | Policy Engine | 📋 Planned | — |
 | 9 | Admin REST API + Observability | 📋 Planned | — |
@@ -175,9 +175,30 @@
 
 ---
 
-## Phase 6 — Memory Layer 📋
+## Phase 6 — Memory Layer ✅
 
-_Not yet started._
+**Commit:** `feat(memory): implement embedding service, pgvector store, lifecycle, and Kafka consumer`
+
+### What was done
+
+- `OllamaEmbeddingService` — implements `EmbeddingPort`; calls Ollama `/api/embed` (all-MiniLM-L6-v2, 384-dim); validates returned dimension; throws `EmbeddingException` on failure
+- `PGVectorMemoryStore` — implements `MemoryStore` port with `NamedParameterJdbcTemplate`:
+  - `store()` — `ON CONFLICT DO UPDATE` upsert; `float[]` ↔ `[x,y,z]` string conversion for `::vector` cast
+  - `findSimilar()` — cosine distance via pgvector `<=>` operator; reinforces strength by 5% on access
+  - `findByType()` — filtered retrieval sorted by strength desc
+  - `delete()` — tenant-scoped hard delete
+  - Vector string helpers: `toVectorString()` / `parseVectorString()` (round-trip safe)
+- `MemoryLifecycleService` — two `@Scheduled` jobs:
+  - Daily decay (3am): 5% strength reduction on records idle > 7 days; parameterized interval via `(:idleDays * INTERVAL '1 day')`
+  - Weekly compaction (4am Sunday): purges records with strength < 0.05
+- `ApiCallMemoryConsumer` — `@KafkaListener` on `aether.api.calls` topic; parses JSON payload; generates embedding via Ollama; classifies memory type (PROCEDURAL=success, SEMANTIC=4xx, EPISODIC=5xx/timeout); stores `MemoryRecord`; embedding failures skip gracefully without propagating
+- `MemoryConfig` — `@Configuration` wiring with constructor injection
+- `application-memory.yml` — Ollama config, topic names, decay/compaction cron via env vars
+- `pom.xml` updated — added `spring-web` (RestClient) and `jackson-databind`
+- Unit tests (9 tests, 0 failures): `PGVectorMemoryStoreTest` (round-trip serialization, 384-dim, null safety), `ApiCallMemoryConsumerTest` (memory type classification, embedding failure skip, malformed payload safety)
+
+### Verification result
+`mvn test -pl aether-memory` — 9 tests, 0 failures.
 
 ---
 
