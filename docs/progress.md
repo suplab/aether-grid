@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 5 — Proxy Layer
+**Active Phase:** Phase 6 — Memory Layer
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -21,7 +21,7 @@
 | 2 | Maven Multi-Module Foundation | ✅ Complete | 1 |
 | 3 | Infrastructure Stack | ✅ Complete | 1 |
 | 4 | Core Domain Model + LLM Abstraction | ✅ Complete | 1 |
-| 5 | Proxy Layer | 📋 Planned | — |
+| 5 | Proxy Layer | ✅ Complete | 1 |
 | 6 | Memory Layer | 📋 Planned | — |
 | 7 | Agent Subsystem | 📋 Planned | — |
 | 8 | Policy Engine | 📋 Planned | — |
@@ -153,9 +153,25 @@
 
 ---
 
-## Phase 5 — Proxy Layer 📋
+## Phase 5 — Proxy Layer ✅
 
-_Not yet started._
+**Commit:** `feat(proxy): implement gateway filters, outbox relay, and Redis rate limiting`
+
+### What was done
+
+- `TenantAuthFilter` (GlobalFilter, order=-100) — resolves `X-API-Key` header → SHA-256 hash → tenant lookup; returns 401 for unknown/suspended tenants; actuator paths bypass auth; stores `TenantContext` in exchange attributes
+- `RedactionFilter` (GlobalFilter, order=-90) — strips sensitive headers (`Authorization`, `X-API-Key`, `Cookie`, `Set-Cookie`, `X-Client-Secret`) from the sanitised request forwarded downstream
+- `ApiCallCaptureFilter` (GlobalFilter, order=-50) — uses `doFinally` hook to capture response status + latency after chain completes; serialises `ApiCallRecordedEvent` as JSON into `outbox_events` table via fire-and-forget on `boundedElastic` scheduler
+- `JdbcTenantRepository` — `NamedParameterJdbcTemplate` implementation of `TenantRepository` port; `ON CONFLICT DO UPDATE` upsert
+- `JdbcOutboxRepository` — writes to `outbox_events` with JSONB payload; `findUnpublished(limit)` uses partial index on `published = false`; `markPublished(ids)` bulk-updates with `ANY(:ids::uuid[])`
+- `OutboxRelayScheduler` — `@Scheduled(fixedDelayString = "${aether.outbox.relay-interval-ms:5000}")` reads up to 100 unpublished events, publishes to Kafka topic via `KafkaTemplate.send(...).get()`, marks published in a batch
+- `TenantKeyResolver` — `KeyResolver` bean; extracts tenant ID from exchange attributes for Redis rate limiter; falls back to IP for unauthenticated requests
+- `ProxyConfig` — `@Configuration` wires all proxy beans (explicit constructor injection, no `@Autowired`)
+- `application.yml` updated — `RequestRateLimiter` default filter (100 rps / 200 burst), `CircuitBreaker` on catch-all route with Resilience4j config (50% failure threshold, 30s open duration), Kafka producer set to `acks=all` + idempotent
+- Unit tests: `TenantAuthFilterTest` — 5 tests covering missing key, unknown key, suspended tenant, valid tenant (context stored), actuator bypass
+
+### Verification result
+`mvn test -pl aether-proxy` — 5 tests, 0 failures.
 
 ---
 

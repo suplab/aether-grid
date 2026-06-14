@@ -4,16 +4,30 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
-  # Spring Cloud Gateway
   cloud:
     gateway:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_RPS:100}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:200}
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@tenantKeyResolver}"
       httpclient:
         connect-timeout: 5000
         response-timeout: 30s
+      routes:
+        - id: aether-catch-all
+          uri: ${DOWNSTREAM_BASE_URL:http://localhost:9000}
+          predicates:
+            - Path=/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: aether-default-cb
+                fallbackUri: forward:/fallback
 
-  # DataSource (for dynamic routes + outbox)
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/aethergrid}
     username: ${POSTGRES_USER:aether}
@@ -21,33 +35,49 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
+      minimum-idle: 2
       connection-timeout: 10000
+      idle-timeout: 600000
 
-  # Redis (rate limiting)
   data:
     redis:
       url: ${REDIS_URL:redis://localhost:6379}
 
-  # Kafka
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    consumer:
-      group-id: aether-proxy
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
 
 server:
   port: 8080
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      aether-default-cb:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    instances:
+      aether-default-cb:
+        timeout-duration: 30s
+        cancel-running-future: true
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info,prometheus,metrics,circuitbreakers
   endpoint:
     health:
       show-details: always
@@ -56,7 +86,12 @@ management:
       prometheus:
         enabled: true
 
+aether:
+  outbox:
+    relay-interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+
 logging:
   level:
     com.suplab.aether: INFO
     org.springframework.cloud.gateway: INFO
+    io.github.resilience4j: INFO
