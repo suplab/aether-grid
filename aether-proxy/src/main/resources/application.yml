@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: aether-proxy
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Spring Cloud Gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+  # DataSource (for dynamic routes + outbox)
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/aethergrid}
+    username: ${POSTGRES_USER:aether}
+    password: ${POSTGRES_PASSWORD:aether}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 10000
+
+  # Redis (rate limiting)
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+
+  # Kafka
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: aether-proxy
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.suplab.aether: INFO
+    org.springframework.cloud.gateway: INFO
