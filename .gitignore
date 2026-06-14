@@ -1,0 +1,29 @@
+# Build output
+target/
+*.class
+*.jar
+
+# Maven
+.mvn/
+!.mvn/wrapper/
+
+# Environment files — never commit .env with values
+.env
+aether-infra/docker/.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+aether-infra/docker/data/
