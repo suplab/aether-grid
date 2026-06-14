@@ -47,10 +47,21 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- Micrometer for agent execution metrics -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 10 — Advanced Agents + Observability
+**Active Phase:** Phase 11 — Multi-Tenancy + Compliance
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -26,7 +26,7 @@
 | 7 | Agent Subsystem | ✅ Complete | 1 |
 | 8 | Policy Engine | ✅ Complete | 1 |
 | 9 | Admin REST API + Observability | ✅ Complete | 1 |
-| 10 | Advanced Agents | 📋 Planned | — |
+| 10 | Advanced Agents + Observability | ✅ Complete | 1 |
 | 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
 | 12 | CI/CD + Kubernetes | 📋 Planned | — |
 
@@ -279,9 +279,35 @@
 
 ---
 
-## Phase 10 — Advanced Agents 📋
+## Phase 10 — Advanced Agents + Observability ✅
 
-_Not yet started._
+**Commit:** `feat(agents): add temporal prediction, reflection agents, and Micrometer metrics`
+
+### What was done
+
+- `TemporalPredictionAgent` — analyses EPISODIC (failures/timeouts) and SEMANTIC (4xx) memory counts; fast-path DEFER for zero memories (confidence=0.3) or zero episodic+semantic (confidence=0.5); queries LLM for `ALERT|DEFER` prediction with JSON response protocol; graceful fallback on LLM failure
+- `ReflectionAgent` — computes health score as `proceduralCount / (total + 1)`; fast-path ALLOW (no LLM) when health ≥ 0.5, reporting score as confidence; queries LLM for `SUGGEST|DEFER` when health is poor; graceful fallback on LLM failure or no memories
+- `AgentOrchestrator` updated — `MeterRegistry` constructor parameter; counter `aether.agent.executions` (tags: agent, decision) incremented per execution; timer `aether.agent.latency` (tag: agent) records per-agent latency in milliseconds
+- `AgentsConfig` updated — wires `TemporalPredictionAgent`, `ReflectionAgent` beans; passes `MeterRegistry` to `AgentOrchestrator`
+- `AgentCapability` enum — `TEMPORAL_PREDICTION` and `REFLECTION` already present from Phase 4
+- `aether-agents/pom.xml` — added `micrometer-core` compile dependency and `micrometer-test` test dependency
+- Unit tests (26 total, 0 failures): `TemporalPredictionAgentTest` (6 tests), `ReflectionAgentTest` (6 tests), all prior tests continue passing
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-agents/.../temporal/TemporalPredictionAgent.java` | Created |
+| `aether-agents/.../reflection/ReflectionAgent.java` | Created |
+| `aether-agents/.../orchestrator/AgentOrchestrator.java` | Updated — MeterRegistry + metrics |
+| `aether-agents/.../config/AgentsConfig.java` | Updated — new agent beans |
+| `aether-agents/.../pom.xml` | Updated — micrometer-core + micrometer-test |
+| `aether-agents/src/test/.../TemporalPredictionAgentTest.java` | Created |
+| `aether-agents/src/test/.../ReflectionAgentTest.java` | Created |
+| `aether-agents/src/test/.../AgentOrchestratorTest.java` | Updated — SimpleMeterRegistry |
+
+### Verification result
+`mvn clean test -pl aether-agents` — 26 tests, 0 failures.
 
 ---
 

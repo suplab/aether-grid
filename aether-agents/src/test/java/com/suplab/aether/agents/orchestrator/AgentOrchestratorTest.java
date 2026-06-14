@@ -4,6 +4,7 @@ import com.suplab.aether.agents.registry.AgentRegistry;
 import com.suplab.aether.agents.spi.*;
 import com.suplab.aether.core.domain.ApiCallId;
 import com.suplab.aether.core.domain.TenantId;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +27,7 @@ class AgentOrchestratorTest {
         var allowingAgent = new StubAgent("AllowAgent", AgentCapability.GOVERNANCE,
                 AgentDecision.ALLOW, 0.9, "all clear");
         var registry = new AgentRegistry(List.of(allowingAgent));
-        orchestrator = new AgentOrchestrator(registry);
+        orchestrator = new AgentOrchestrator(registry, new SimpleMeterRegistry());
     }
 
     @Test
