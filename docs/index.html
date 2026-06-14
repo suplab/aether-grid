@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether — Human-Centric Cognitive Infrastructure</title>
+  <style>
+    :root {
+      --bg: #0a0d14;
+      --surface: #111520;
+      --surface2: #161b2e;
+      --border: #1e2a45;
+      --accent: #4f8ef7;
+      --accent2: #7c5af7;
+      --accent3: #34d399;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --warn: #f59e0b;
+      --tag-bg: #1e2a45;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10, 13, 20, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .nav-brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; }
+    .nav-brand span { color: var(--accent); }
+    .nav-links { display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--muted); }
+    .nav-links a { color: var(--muted); transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 6rem 2rem 4rem;
+      text-align: center;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .hero-eyebrow {
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 1.2rem;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero h1 .accent { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 2.5rem;
+    }
+    .hero-badges {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;
+      margin-bottom: 3rem;
+    }
+    .badge {
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .badge.blue { border-color: rgba(79,142,247,0.4); color: var(--accent); background: rgba(79,142,247,0.08); }
+    .badge.purple { border-color: rgba(124,90,247,0.4); color: var(--accent2); background: rgba(124,90,247,0.08); }
+    .badge.green { border-color: rgba(52,211,153,0.4); color: var(--accent3); background: rgba(52,211,153,0.08); }
+
+    /* ── SECTION WRAPPER ── */
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+    }
+    .section-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+    .section h2 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.6rem;
+    }
+    .section-intro {
+      color: var(--muted);
+      max-width: 620px;
+      margin-bottom: 2.5rem;
+    }
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── ECOSYSTEM LAYERS ── */
+    .layers {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .layer {
+      padding: 2rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 2rem;
+      align-items: start;
+      transition: background 0.2s;
+    }
+    .layer:last-child { border-bottom: none; }
+    .layer:hover { background: var(--surface); }
+    .layer-meta { }
+    .layer-number {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .layer-name {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+    .layer-name.l1 { color: #94a3b8; }
+    .layer-name.l2 { color: var(--accent); }
+    .layer-name.l3 { color: var(--accent2); }
+    .layer-role {
+      font-size: 0.78rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      display: inline-block;
+    }
+    .layer-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    .layer-components {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .chip {
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    /* ── PRINCIPLES ── */
+    .principles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .principle-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+    .principle-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .principle-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .principle-card p { font-size: 0.85rem; color: var(--muted); }
+    .principle-card .flow {
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: var(--accent3);
+      margin-top: 0.8rem;
+      background: rgba(52,211,153,0.06);
+      border: 1px solid rgba(52,211,153,0.15);
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      line-height: 2;
+    }
+
+    /* ── AETHER CORE COMPONENTS ── */
+    .core-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-width: 560px;
+    }
+    .core-step {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .core-step-connector {
+      width: 1px;
+      height: 28px;
+      background: linear-gradient(to bottom, var(--border), transparent);
+      margin-left: 17px;
+    }
+    .core-step-dot {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .core-step-text { }
+    .core-step-text strong { font-size: 0.9rem; display: block; }
+    .core-step-text span { font-size: 0.8rem; color: var(--muted); }
+    .core-memory-types {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 2rem;
+    }
+    .memory-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+    }
+    .memory-card .type { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 0.3rem; }
+    .memory-card strong { display: block; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .memory-card span { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+    /* ── GRID ARCHITECTURE ── */
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      overflow-x: auto;
+      line-height: 1.8;
+      white-space: pre;
+    }
+    .arch-diagram .hl { color: var(--accent); }
+    .arch-diagram .hl2 { color: var(--accent2); }
+    .arch-diagram .hl3 { color: var(--accent3); }
+
+    /* ── AGENTS ── */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem;
+    }
+    .agent-card .agent-header {
+      display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.8rem;
+    }
+    .agent-icon {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .agent-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.1rem; }
+    .agent-capability { font-size: 0.7rem; color: var(--accent); font-family: monospace; }
+    .agent-card p { font-size: 0.83rem; color: var(--muted); }
+
+    /* ── TECH STACK ── */
+    .stack-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .stack-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .stack-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .stack-table tr:last-child td { border-bottom: none; }
+    .stack-table tr:hover td { background: var(--surface); }
+    .stack-table .layer-col { color: var(--muted); font-size: 0.8rem; width: 160px; }
+    .stack-table .tech-col { font-weight: 500; }
+    .stack-table code {
+      background: var(--tag-bg);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.8rem;
+      font-family: 'Courier New', monospace;
+      color: var(--accent3);
+    }
+
+    /* ── ROADMAP ── */
+    .roadmap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+    .roadmap::before {
+      content: '';
+      position: absolute;
+      left: 20px;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+    .roadmap-item {
+      display: flex;
+      gap: 1.5rem;
+      padding-bottom: 2rem;
+      position: relative;
+    }
+    .roadmap-item:last-child { padding-bottom: 0; }
+    .roadmap-dot {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .roadmap-dot.done { border-color: var(--accent3); color: var(--accent3); background: rgba(52,211,153,0.1); }
+    .roadmap-dot.active { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,0.1); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(79,142,247,0.3); } 50% { box-shadow: 0 0 0 8px rgba(79,142,247,0); } }
+    .roadmap-dot.pending { color: var(--muted); }
+    .roadmap-content { padding-top: 0.4rem; flex: 1; }
+    .roadmap-content h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .roadmap-content p { font-size: 0.82rem; color: var(--muted); }
+    .roadmap-status {
+      display: inline-block;
+      font-size: 0.7rem;
+      border-radius: 999px;
+      padding: 0.15rem 0.6rem;
+      margin-top: 0.4rem;
+    }
+    .roadmap-status.done { background: rgba(52,211,153,0.1); color: var(--accent3); border: 1px solid rgba(52,211,153,0.3); }
+    .roadmap-status.active { background: rgba(79,142,247,0.1); color: var(--accent); border: 1px solid rgba(79,142,247,0.3); }
+    .roadmap-status.pending { background: var(--tag-bg); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    footer .bootstrap-promo {
+      margin-top: 1rem;
+      padding: 0.8rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: inline-block;
+      font-size: 0.8rem;
+    }
+    footer .bootstrap-promo a { color: var(--accent2); font-weight: 600; }
+    footer .bootstrap-promo a:hover { color: var(--accent); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .layer { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .core-memory-types { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand"><span>Aether</span></div>
+  <div class="nav-links">
+    <a href="#ecosystem">Ecosystem</a>
+    <a href="#principles">Principles</a>
+    <a href="#core">Aether Core</a>
+    <a href="#grid">Aether Grid</a>
+    <a href="#agents">Agents</a>
+    <a href="#stack">Stack</a>
+    <a href="#roadmap">Roadmap</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">Conceptual Blueprint v1.0 · suplab/aether</div>
+  <h1>The <span class="accent">Cognitive Fabric</span><br/>for Intelligent Systems</h1>
+  <p class="hero-sub">
+    A human-centric cognitive infrastructure layered across philosophy, personal intelligence,
+    and distributed autonomous agents — designed to augment human capability, not replace it.
+  </p>
+  <div class="hero-badges">
+    <span class="badge blue">Spring Boot 3.x · Java 21</span>
+    <span class="badge purple">Multi-Agent · PGVector</span>
+    <span class="badge green">Local-First · Ollama</span>
+    <span class="badge">Apache Kafka</span>
+    <span class="badge">Policy-as-Code</span>
+    <span class="badge">Self-Debugging</span>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ECOSYSTEM LAYERS -->
+<section class="section" id="ecosystem">
+  <div class="section-label">Architecture</div>
+  <h2>The Three Layers</h2>
+  <p class="section-intro">
+    Aether is not a single product. It is a layered cognitive framework where each tier builds on the one above it.
+  </p>
+
+  <div class="layers">
+    <div class="layer">
+      <div class="layer-meta">
+        <div class="layer-number">Layer 01</div>
+        <div class="layer-name l1">Aether</div>
+        <div class="layer-role">Philosophy &amp; Vision</div>
+      </div>
+      <div>
+        <p class="layer-desc">
+          Historically, Aether was the invisible medium connecting everything in the universe.
+          Here, it represents the cognitive fabric that connects humans, memories, emotions,
+          knowledge, and intelligent systems. Aether is not an AI assistant — it is a
+          <em>second mind</em>, a reasoning companion, a digital consciousness interface.
+        </p>
+        <div class="layer-components">
+          <span class="chip">Human + AI Symbiosis</span>
+          <span class="chip">Cognitive Computing Vision</span>
+          <span class="chip">Persistent Context</span>
+          <span class="chip">Emotional Intelligence</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-meta">
+        <div class="layer-number">Layer 02</div>
+        <div class="layer-name l2">Aether Core</div>
+        <div class="layer-role">Personal Cognitive Engine</div>
+      </div>
+      <div>
+        <p class="layer-desc">
+          The individual intelligence layer — a personal operating system for the mind.
+          Maintains a continuously evolving model of its user: their memories, goals, emotions,
+          behavioral patterns, and knowledge. Every interaction strengthens or refines this model.
+        </p>
+        <div class="layer-components">
+          <span class="chip">Sensory Interface</span>
+          <span class="chip">Context Engine</span>
+          <span class="chip">Memory Engine</span>
+          <span class="chip">Knowledge Graph</span>
+          <span class="chip">Reasoning Engine</span>
+          <span class="chip">Emotional Context</span>
+          <span class="chip">Reflection Engine</span>
+          <span class="chip">Action Engine</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-meta">
+        <div class="layer-number">Layer 03</div>
+        <div class="layer-name l3">Aether Grid</div>
+        <div class="layer-role">Distributed Intelligence · This Repo</div>
+      </div>
+      <div>
+        <p class="layer-desc">
+          If Aether Core is the mind, Aether Grid is the nervous system.
+          A cognitive mesh of specialized agents that share memory, coordinate reasoning,
+          govern API interactions, and self-debug — at enterprise scale, across any tenant.
+        </p>
+        <div class="layer-components">
+          <span class="chip">Multi-Agent Orchestration</span>
+          <span class="chip">Shared Semantic Memory</span>
+          <span class="chip">API Governance</span>
+          <span class="chip">Policy-as-Code</span>
+          <span class="chip">Temporal Prediction</span>
+          <span class="chip">Self-Debugging</span>
+          <span class="chip">Multi-Tenancy</span>
+          <span class="chip">Event-Driven</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- PRINCIPLES -->
+<section class="section" id="principles">
+  <div class="section-label">Philosophy</div>
+  <h2>Core Principles</h2>
+  <p class="section-intro">Four principles that govern every design decision across the ecosystem.</p>
+
+  <div class="principles-grid">
+    <div class="principle-card">
+      <div class="principle-icon" style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.2)">🧠</div>
+      <h3>Persistent Memory</h3>
+      <p>Knowledge is cumulative. Every interaction is stored, embedded, and associated — never discarded after a session ends.</p>
+      <div class="flow">Experience<br/>→ Understand<br/>→ Remember<br/>→ Associate<br/>→ Evolve</div>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-icon" style="background:rgba(124,90,247,0.1);border:1px solid rgba(124,90,247,0.2)">❤️</div>
+      <h3>Emotional Intelligence</h3>
+      <p>Human decisions are rarely purely rational. Aether models stress, confidence, motivation, and frustration — not to imitate them, but to understand them.</p>
+      <div class="flow">Emotion<br/>→ Intent<br/>→ Pattern<br/>→ Adaptation</div>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-icon" style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2)">🌐</div>
+      <h3>Contextual Reasoning</h3>
+      <p>Every interaction exists within a rich context. Raw data alone is meaningless without the surrounding circumstances that give it significance.</p>
+      <div class="flow">Person + Time<br/>+ Environment<br/>+ History<br/>= Meaning</div>
+    </div>
+
+    <div class="principle-card">
+      <div class="principle-icon" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2)">⚡</div>
+      <h3>Human Augmentation</h3>
+      <p>Aether amplifies memory, creativity, learning, decision-making, and self-awareness. Agents never auto-block without human confirmation when confidence is below threshold.</p>
+      <div class="flow">Amplify<br/>→ Not Replace</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- AETHER CORE -->
+<section class="section" id="core">
+  <div class="section-label">Layer 02</div>
+  <h2>Aether Core</h2>
+  <p class="section-intro">The personal cognitive engine — a continuously evolving model of an individual's mind.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
+    <div>
+      <div class="core-flow">
+        <div class="core-step">
+          <div class="core-step-dot">👁</div>
+          <div class="core-step-text">
+            <strong>Sensory Interface</strong>
+            <span>Text, voice, documents, email, calendar, IoT sensors</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">⚙️</div>
+          <div class="core-step-text">
+            <strong>Context Engine</strong>
+            <span>Current task · Location · Time · Goals · History</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">🗄</div>
+          <div class="core-step-text">
+            <strong>Memory Engine</strong>
+            <span>Four memory types · Lifecycle: capture → embed → associate → forget</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">🕸</div>
+          <div class="core-step-text">
+            <strong>Knowledge Graph</strong>
+            <span>Relationships are first-class citizens — continuously evolving</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">💡</div>
+          <div class="core-step-text">
+            <strong>Reasoning Engine</strong>
+            <span>System 1 (fast intuitive) · System 2 (deep analytical) · Meta-reasoning</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">🔍</div>
+          <div class="core-step-text">
+            <strong>Reflection Engine</strong>
+            <span>What have I learned? What patterns exist? What should be forgotten?</span>
+          </div>
+        </div>
+        <div class="core-step-connector"></div>
+        <div class="core-step">
+          <div class="core-step-dot">⚡</div>
+          <div class="core-step-text">
+            <strong>Action Engine</strong>
+            <span>Schedule reminders · Trigger workflows · Execute APIs · Coordinate agents</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem">
+        The Memory Engine is foundational. It stores not just facts but experiences, processes, and emotional associations — modelled after how human memory actually works.
+      </p>
+      <div class="core-memory-types">
+        <div class="memory-card">
+          <div class="type">Episodic</div>
+          <strong>Experiences</strong>
+          <span>"Interview on July 5th"</span>
+        </div>
+        <div class="memory-card">
+          <div class="type">Semantic</div>
+          <strong>Facts</strong>
+          <span>"User prefers Spring Boot"</span>
+        </div>
+        <div class="memory-card">
+          <div class="type">Procedural</div>
+          <strong>Processes</strong>
+          <span>"Generate diagrams with Mermaid"</span>
+        </div>
+        <div class="memory-card">
+          <div class="type">Emotional</div>
+          <strong>Associations</strong>
+          <span>"Frustrated during deployment issues"</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- AETHER GRID ARCHITECTURE -->
+<section class="section" id="grid">
+  <div class="section-label">Layer 03</div>
+  <h2>Aether Grid</h2>
+  <p class="section-intro">The distributed intelligence layer. A cognitive mesh where agents share memory, govern APIs, and collectively reason.</p>
+
+  <div class="arch-diagram">                         <span class="hl">User / Tenant</span>
+                               │
+               ┌───────────────▼───────────────┐
+               │  <span class="hl">aether-proxy</span>  (port 8080)   │
+               │  Spring Cloud Gateway          │
+               │  Circuit Breaker · Rate Limit  │
+               │  Multi-tenant routing · Capture│
+               └───────────────┬───────────────┘
+                               │ <span class="hl3">ApiCallRecordedEvent</span>
+               ┌───────────────▼───────────────┐
+               │      <span class="hl">Apache Kafka</span>           │
+               └──┬────────────┬──────────────┘
+                  │            │
+    ┌─────────────▼──┐  ┌──────▼─────────────────────┐
+    │ <span class="hl">aether-memory</span>  │  │      <span class="hl">aether-agents</span>           │
+    │ EmbeddingService│  │  AgentRegistry              │
+    │ PGVector store  │  │  AgentOrchestrator          │
+    │ Knowledge graph │  │  ┌─────────────────────┐   │
+    │ Compaction job  │  │  │ <span class="hl2">GovernanceAgent</span>      │   │
+    └─────────────────┘  │  │ <span class="hl2">RetryAgent</span>           │   │
+                         │  │ <span class="hl2">HallucinationAgent</span>   │   │
+    ┌────────────────┐   │  │ <span class="hl2">PolicyDriftAgent</span>     │   │
+    │ <span class="hl">aether-policy</span>  │   │  │ <span class="hl2">TemporalAgent</span>        │   │
+    │ Policy-as-Code │◄──┤  └─────────────────────┘   │
+    │ SpEL evaluator │   └────────────────────────────┘
+    │ Versioned store│
+    │ GDPR redaction │
+    │ Audit log      │
+    └───────┬────────┘
+            │
+    ┌───────▼────────┐
+    │  <span class="hl">aether-api</span>    │  (port 8081)
+    │  Admin REST API│
+    │  Tenant mgmt   │
+    │  OpenTelemetry │
+    └────────────────┘</div>
+</section>
+
+<hr class="divider" />
+
+<!-- AGENTS -->
+<section class="section" id="agents">
+  <div class="section-label">Agent Subsystem</div>
+  <h2>Specialized Agents</h2>
+  <p class="section-intro">
+    All agents implement a common SPI and are discovered automatically via the AgentRegistry.
+    New agents require zero configuration — implement the interface, add <code>@Component</code>.
+  </p>
+
+  <div class="agents-grid">
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">⚖️</div>
+        <div>
+          <h3>GovernanceAgent</h3>
+          <div class="agent-capability">GOVERNANCE</div>
+        </div>
+      </div>
+      <p>Enforces API usage policies using LLM reasoning augmented with relevant memories. Confidence &lt; 0.8 = human-in-the-loop, never auto-block.</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">🔄</div>
+        <div>
+          <h3>RetryAgent</h3>
+          <div class="agent-capability">RETRY_OPTIMIZATION</div>
+        </div>
+      </div>
+      <p>Learns optimal retry strategies from historical failure patterns. Generates adaptive RetryPolicy objects with backoff type, jitter, and max attempts.</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">🔬</div>
+        <div>
+          <h3>HallucinationDetectorAgent</h3>
+          <div class="agent-capability">HALLUCINATION_DETECTION</div>
+        </div>
+      </div>
+      <p>Detects when agent LLM outputs contradict verifiable facts stored in semantic memory. Uses cosine similarity + rule-based consistency checks.</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">📡</div>
+        <div>
+          <h3>PolicyDriftAgent</h3>
+          <div class="agent-capability">POLICY_DRIFT</div>
+        </div>
+      </div>
+      <p>Monitors live API behavior against policy baselines. Detects statistical divergence over a rolling 24h window and flags policies for review.</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">⏱️</div>
+        <div>
+          <h3>TemporalPredictionAgent</h3>
+          <div class="agent-capability">TEMPORAL_PREDICTION</div>
+        </div>
+      </div>
+      <p>Predicts future failure and latency windows from time-series memory. Combines statistical modeling with LLM pattern recognition for pre-emptive scheduling.</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">🪞</div>
+        <div>
+          <h3>ReflectionAgent</h3>
+          <div class="agent-capability">REFLECTION</div>
+        </div>
+      </div>
+      <p>Periodically evaluates overall system health. Identifies ineffective retry loops, stale policies, and underperforming agents. Suggests optimizations.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- TECH STACK -->
+<section class="section" id="stack">
+  <div class="section-label">Technology</div>
+  <h2>Stack</h2>
+  <p class="section-intro">Local-first, cloud-ready. Runs entirely on-premise with Ollama; scales to Kubernetes on any cloud.</p>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table class="stack-table">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Technology</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="layer-col">Language</td><td class="tech-col"><code>Java 21</code></td><td style="color:var(--muted);font-size:0.83rem">Virtual threads, records, sealed classes, pattern matching</td></tr>
+        <tr><td class="layer-col">Framework</td><td class="tech-col"><code>Spring Boot 3.3.x</code></td><td style="color:var(--muted);font-size:0.83rem"><code>jakarta.*</code> exclusively — Spring Cloud, Security 6, Data JDBC</td></tr>
+        <tr><td class="layer-col">API Gateway</td><td class="tech-col"><code>Spring Cloud Gateway</code></td><td style="color:var(--muted);font-size:0.83rem">Reactive proxy, dynamic routes, filter chain</td></tr>
+        <tr><td class="layer-col">Messaging</td><td class="tech-col"><code>Apache Kafka</code></td><td style="color:var(--muted);font-size:0.83rem">Event streaming, agent task queues, transactional outbox</td></tr>
+        <tr><td class="layer-col">Database</td><td class="tech-col"><code>PostgreSQL 16 + pgvector</code></td><td style="color:var(--muted);font-size:0.83rem">Relational + 384-dim vector store, row-level security</td></tr>
+        <tr><td class="layer-col">Cache</td><td class="tech-col"><code>Redis 7</code></td><td style="color:var(--muted);font-size:0.83rem">Rate limiting, TemporalPrediction cache, session store</td></tr>
+        <tr><td class="layer-col">LLM Runtime</td><td class="tech-col"><code>Ollama</code></td><td style="color:var(--muted);font-size:0.83rem">Gemma2:2b / Phi-3-mini — local, no external API calls required</td></tr>
+        <tr><td class="layer-col">Embeddings</td><td class="tech-col"><code>all-MiniLM-L6-v2</code></td><td style="color:var(--muted);font-size:0.83rem">384-dim sentence embeddings via Ollama</td></tr>
+        <tr><td class="layer-col">Resilience</td><td class="tech-col"><code>Resilience4j</code></td><td style="color:var(--muted);font-size:0.83rem">Circuit breaker, retry, rate limiter, bulkhead per tenant</td></tr>
+        <tr><td class="layer-col">Migrations</td><td class="tech-col"><code>Flyway</code></td><td style="color:var(--muted);font-size:0.83rem">Versioned SQL migrations, V001–V009 schema baseline</td></tr>
+        <tr><td class="layer-col">Observability</td><td class="tech-col"><code>OTel + Micrometer + Grafana</code></td><td style="color:var(--muted);font-size:0.83rem">Distributed tracing, custom meters, dashboards</td></tr>
+        <tr><td class="layer-col">Container</td><td class="tech-col"><code>Docker Compose → Kubernetes</code></td><td style="color:var(--muted);font-size:0.83rem">Local stack with healthchecks; Helm chart for production</td></tr>
+        <tr><td class="layer-col">CI/CD</td><td class="tech-col"><code>GitHub Actions</code></td><td style="color:var(--muted);font-size:0.83rem">Build → test → quality gate → container push (OIDC, no static secrets)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ROADMAP -->
+<section class="section" id="roadmap">
+  <div class="section-label">Delivery</div>
+  <h2>Roadmap</h2>
+  <p class="section-intro">Small, logical, committable chunks. Every phase updates docs, README, and this page in sync.</p>
+
+  <div class="roadmap">
+    <div class="roadmap-item">
+      <div class="roadmap-dot done">✓</div>
+      <div class="roadmap-content">
+        <h3>Phase 0 — Concept &amp; Documentation</h3>
+        <p>README rewrite · docs/index.html · architecture.md · roadmap.md · progress.md</p>
+        <span class="roadmap-status done">Complete</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot done">✓</div>
+      <div class="roadmap-content">
+        <h3>Phase 1 — EEIK Bootstrap Integration</h3>
+        <p>CLAUDE.md · .claude/memory/ (7 files) · project manifest · hooks · slash commands</p>
+        <span class="roadmap-status done">Complete</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot active">2</div>
+      <div class="roadmap-content">
+        <h3>Phase 2 — Maven Multi-Module Foundation</h3>
+        <p>Parent POM (Java 21 + BOM) · 7 module skeletons · dependency management</p>
+        <span class="roadmap-status active">Next</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">3</div>
+      <div class="roadmap-content">
+        <h3>Phase 3 — Infrastructure Stack</h3>
+        <p>Docker Compose (Postgres+pgvector, Redis, Kafka, Ollama, Prometheus, Grafana) · Flyway migrations V001–V009</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">4</div>
+      <div class="roadmap-content">
+        <h3>Phase 4 — Core Domain Model</h3>
+        <p>ApiCall aggregate · sealed DomainEvent hierarchy · port interfaces · multi-tenancy foundation</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">5</div>
+      <div class="roadmap-content">
+        <h3>Phase 5 — Proxy Layer</h3>
+        <p>Spring Cloud Gateway · ProxyFilter · circuit breaker · rate limiting · dynamic tenant routing</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">6</div>
+      <div class="roadmap-content">
+        <h3>Phase 6 — Memory Layer</h3>
+        <p>EmbeddingService (all-MiniLM via Ollama) · PGVectorMemoryStore · MemoryService · compaction scheduler</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">7</div>
+      <div class="roadmap-content">
+        <h3>Phase 7 — Agent Subsystem</h3>
+        <p>Agent SPI · AgentRegistry · AgentOrchestrator · GovernanceAgent · RetryAgent · OllamaLlmClient</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">8</div>
+      <div class="roadmap-content">
+        <h3>Phase 8 — Policy Engine</h3>
+        <p>Policy-as-Code (YAML in PG) · SpEL rule evaluator · versioned store · GDPR redaction · audit log</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">9</div>
+      <div class="roadmap-content">
+        <h3>Phase 9 — Admin REST API + Observability</h3>
+        <p>Tenant/policy/memory controllers · OpenAPI 3.1 · OpenTelemetry · Grafana dashboards</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">10</div>
+      <div class="roadmap-content">
+        <h3>Phase 10 — Advanced Agents</h3>
+        <p>HallucinationDetectorAgent · PolicyDriftAgent · TemporalPredictionAgent · ReflectionAgent</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">11</div>
+      <div class="roadmap-content">
+        <h3>Phase 11 — Multi-Tenancy + Compliance</h3>
+        <p>PG row-level security · GDPR export/erase endpoints · data lineage tracking</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot pending">12</div>
+      <div class="roadmap-content">
+        <h3>Phase 12 — CI/CD + Kubernetes</h3>
+        <p>GitHub Actions pipeline · OIDC container push · Helm chart · HPA · K8s manifests</p>
+        <span class="roadmap-status pending">Planned</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <strong>Aether</strong> · Human-Centric Cognitive Infrastructure · Blueprint v1.0
+    <br/>
+    <span style="color:var(--muted)">
+      By <strong>Suplab</strong> —
+      <a href="https://github.com/suplab/aether">github.com/suplab/aether</a>
+    </span>
+  </div>
+  <div class="bootstrap-promo">
+    🚀 Scaffolded &amp; governed by <a href="https://github.com/suplab/eeik-bootstrap">eeik-bootstrap</a>
+    — the AI-native enterprise engineering operating system.
+    <br/>
+    <span style="color:var(--muted)">44 specialist agents · 19 slash commands · persistent memory · governance from day one.</span>
+  </div>
+</footer>
+
+</body>
+</html>
