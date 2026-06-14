@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 9 — Admin REST API
+**Active Phase:** Phase 10 — Advanced Agents + Observability
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -25,7 +25,7 @@
 | 6 | Memory Layer | ✅ Complete | 1 |
 | 7 | Agent Subsystem | ✅ Complete | 1 |
 | 8 | Policy Engine | ✅ Complete | 1 |
-| 9 | Admin REST API + Observability | 📋 Planned | — |
+| 9 | Admin REST API + Observability | ✅ Complete | 1 |
 | 10 | Advanced Agents | 📋 Planned | — |
 | 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
 | 12 | CI/CD + Kubernetes | 📋 Planned | — |
@@ -242,9 +242,40 @@
 
 ---
 
-## Phase 9 — Admin REST API + Observability 📋
+## Phase 9 — Admin REST API + Observability ✅
 
-_Not yet started._
+**Commit:** `feat(api): implement admin REST API — tenant, policy, memory controllers`
+
+### What was done
+
+- `TenantController` — `@RestController @RequestMapping("/api/v1/tenants")`; `onboard` (POST) with SHA-256 API key hashing before storage; `get` (GET /{tenantId}); `suspend` (PUT /{id}/suspend); `reactivate` (PUT /{id}/reactivate); all lifecycle transitions respect `TenantNotFoundException`
+- `PolicyController` — `@RequestMapping("/api/v1/tenants/{tenantId}/policies")`; `create` (POST) generates UUID policyId and saves as DRAFT; `activate` (PUT /{policyId}/activate); `archive` (PUT /{policyId}/archive); `getActive` (GET /active) returns YAML or 404
+- `MemoryController` — `@RequestMapping("/api/v1/tenants/{tenantId}/memory")`; `search` (POST /search) embeds query via `EmbeddingPort`, retrieves similar records via `MemoryStore`; `delete` (DELETE /{memoryId}) tenant-scoped hard delete
+- `GlobalExceptionHandler` — `@RestControllerAdvice`; RFC 7807 `ProblemDetail` responses for `TenantNotFoundException` (404), `AetherException` (500), `MethodArgumentNotValidException` (400 + field errors map), `IllegalArgumentException` (400)
+- `SecurityConfig` — `@EnableWebSecurity`; stateless JWT OAuth2 resource server; actuator + Swagger UI permitted without auth; all `/api/**` requires authentication; CSRF disabled
+- `ApiConfig` — `@Configuration`; wires `TenantRepository` adapter (`JdbcApiTenantRepository` private inner class — UPSERT on `tenants` table)
+- `AetherApiApplication` updated — `scanBasePackages = "com.suplab.aether"` to pick up `MemoryConfig`, `PolicyConfig`, `AgentsConfig` from dependent modules
+- `pom.xml` (parent) — added `-parameters` compiler flag for Spring MVC path variable name resolution
+- MockMvc slice tests (17 tests, 0 failures): `TenantControllerTest` (7 tests), `PolicyControllerTest` (6 tests), `MemoryControllerTest` (4 tests)
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-api/.../controller/TenantController.java` | Created |
+| `aether-api/.../controller/PolicyController.java` | Created |
+| `aether-api/.../controller/MemoryController.java` | Created |
+| `aether-api/.../controller/GlobalExceptionHandler.java` | Created |
+| `aether-api/.../security/SecurityConfig.java` | Created |
+| `aether-api/.../config/ApiConfig.java` | Created |
+| `aether-api/.../AetherApiApplication.java` | Updated — scanBasePackages |
+| `aether-api/src/test/.../TenantControllerTest.java` | Created |
+| `aether-api/src/test/.../PolicyControllerTest.java` | Created |
+| `aether-api/src/test/.../MemoryControllerTest.java` | Created |
+| `pom.xml` | Added `-parameters` compiler flag |
+
+### Verification result
+`mvn clean test -pl aether-api` — 17 tests, 0 failures.
 
 ---
 
