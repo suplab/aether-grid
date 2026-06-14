@@ -1,0 +1,11 @@
+package com.suplab.aether.agents.spi;
+
+public enum AgentCapability {
+    GOVERNANCE,
+    RETRY_STRATEGY,
+    HALLUCINATION_DETECTION,
+    POLICY_DRIFT,
+    TEMPORAL_PREDICTION,
+    REFLECTION,
+    EMBEDDING
+}

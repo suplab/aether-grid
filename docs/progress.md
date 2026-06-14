@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 4 — Core Domain Model
+**Active Phase:** Phase 5 — Proxy Layer
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -20,7 +20,7 @@
 | 1 | EEIK Bootstrap Integration | ✅ Complete | 1 |
 | 2 | Maven Multi-Module Foundation | ✅ Complete | 1 |
 | 3 | Infrastructure Stack | ✅ Complete | 1 |
-| 4 | Core Domain Model | 📋 Planned | — |
+| 4 | Core Domain Model + LLM Abstraction | ✅ Complete | 1 |
 | 5 | Proxy Layer | 📋 Planned | — |
 | 6 | Memory Layer | 📋 Planned | — |
 | 7 | Agent Subsystem | 📋 Planned | — |
@@ -104,21 +104,52 @@
 
 ---
 
-## Phase 3 — Infrastructure Stack 📋
+## Phase 3 — Infrastructure Stack ✅
 
-_Not yet started._
+**Commit:** `infra: add docker compose stack and flyway migrations`
 
-### Verification target
-`docker compose up -d` → all services `healthy`. Flyway V001–V009 run clean.
+### What was done
+
+- `aether-infra/docker/docker-compose.yml` — 7 services with `condition: service_healthy` dependency chains: pgvector/pgvector:pg16, redis:7-alpine, confluentinc/cp-zookeeper:7.7.1, confluentinc/cp-kafka:7.7.1, ollama/ollama:latest, prom/prometheus:v2.55.0, grafana/grafana:11.3.0
+- `aether-infra/docker/prometheus.yml` — scrapes host.docker.internal:8080 and :8081 actuator endpoints
+- `aether-infra/docker/.env.example` — documents required env var names with no values
+- `aether-infra/db/migration/V001__create_tenants.sql` through `V009__create_outbox_events.sql` — full schema: tenants, endpoints, api_calls, memory_embeddings (pgvector 384-dim IVFFlat index), policies, policy_versions, agent_decisions, audit_log (no FK by design), outbox_events (partial index on unread rows)
+
+### Verification result
+`docker compose config --quiet` — valid stack. All migrations forward-only with no destructive DDL.
 
 ---
 
-## Phase 4 — Core Domain Model 📋
+## Phase 4 — Core Domain Model + LLM Abstraction ✅
 
-_Not yet started._
+**Commit:** `feat(core): implement domain model, events, ports, and multi-provider LLM abstraction`
 
-### Verification target
-`mvn test -pl aether-core` — all green, JaCoCo ≥80% line coverage.
+### What was done
+
+**`aether-core` — pure domain (no Spring dependency):**
+- Value objects (Java 21 records): `ApiCallId`, `TenantId`, `ApiEndpoint`, `CallMetrics`, `MemoryRecord`
+- Enums: `CallOutcome`, `HttpMethod`, `MemoryType`, `TenantStatus`
+- Aggregates: `ApiCall` (raises `ApiCallRecordedEvent` on creation, pulls events after dispatch), `Tenant` (lifecycle: ACTIVE → SUSPENDED / DEPROVISIONED)
+- Sealed `DomainEvent` interface with four `permits`: `ApiCallRecordedEvent`, `PolicyViolatedEvent`, `AgentDecisionEvent`, `GovernanceUpdatedEvent` — exhaustive switch pattern matching enforced by compiler
+- Port interfaces: `EventPublisher`, `ApiCallRepository`, `TenantRepository`, `MemoryStore`, `EmbeddingPort`, `PolicyRepository`
+- Exception hierarchy: `AetherException` (abstract), `TenantNotFoundException`, `PolicyViolationException`, `AgentException`
+- Unit tests (19 tests, all green): `ApiCallTest`, `TenantTest`, `CallMetricsTest`, `DomainEventTest`
+
+**`aether-agents` — multi-provider LLM abstraction:**
+- `LlmClient` interface — single `complete(LlmRequest) → LlmResponse` method + `provider()` + `isAvailable()`
+- `LlmRequest` / `LlmResponse` records with full validation
+- `LlmProvider` enum: `OLLAMA`, `GROQ`, `ANTHROPIC`
+- `OllamaLlmClient` — local Ollama `/api/chat` (Gemma2:2b, Phi-3-mini, any local model)
+- `GroqLlmClient` — Groq cloud inference (Llama-3.3-70b, Mixtral-8x7b, Gemma2-9b) via OpenAI-compatible API
+- `AnthropicLlmClient` — Claude models (claude-haiku-4-5-20251001, claude-sonnet-4-6) via Anthropic Messages API
+- `LlmClientConfig` — `@ConditionalOnProperty(name = "aether.llm.provider")` wires the correct adapter at startup; Ollama is the default
+- `application-agents.yml` — all provider config with env var overrides (`AETHER_LLM_PROVIDER`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `OLLAMA_MODEL`, etc.)
+- Agent SPI: `Agent` interface, `AgentCapability` enum, `AgentInput` / `AgentOutput` records, `AgentDecision` enum
+- Confidence gate enforced in `AgentOutput` compact constructor: `BLOCK` with confidence < 0.8 → `autoEnforced = false` → human-in-the-loop
+- `AgentRegistry` — Spring-injected `List<Agent>`, `disableAgent(type)` kill-switch, `findByCapability()`
+
+### Verification result
+`mvn test -pl aether-core` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
 
 ---
 
