@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 8 — Policy Engine
+**Active Phase:** Phase 9 — Admin REST API
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -24,7 +24,7 @@
 | 5 | Proxy Layer | ✅ Complete | 1 |
 | 6 | Memory Layer | ✅ Complete | 1 |
 | 7 | Agent Subsystem | ✅ Complete | 1 |
-| 8 | Policy Engine | 📋 Planned | — |
+| 8 | Policy Engine | ✅ Complete | 1 |
 | 9 | Admin REST API + Observability | 📋 Planned | — |
 | 10 | Advanced Agents | 📋 Planned | — |
 | 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
@@ -221,9 +221,24 @@
 
 ---
 
-## Phase 8 — Policy Engine 📋
+## Phase 8 — Policy Engine ✅
 
-_Not yet started._
+**Commit:** `feat(policy): implement SpEL policy engine, GDPR redaction, audit log, and policy store`
+
+### What was done
+
+- `PolicyRule` record — name, condition (SpEL expression), `PolicyAction` enum, priority
+- `PolicyEvaluationContext` record — method, path, responseCode, latencyMs, outcome, tenantId, headers
+- `PolicyEvaluationResult` record — `overallAction`, matched `RuleMatch` list, `isBlocked()`, `hasAlerts()`
+- `SpelPolicyEngine` — loads active policy YAML per tenant from DB; parses `rules[]` array; evaluates SpEL conditions via `SimpleEvaluationContext` (read-only, prevents arbitrary execution); sorts rules by priority DESC; determines overall action by severity (BLOCK > RATE_LIMIT > ALERT > AUDIT > ALLOW); gracefully skips malformed rule expressions
+- `JdbcPolicyRepository` — implements `PolicyRepository` port; `ON CONFLICT DO UPDATE` upsert; auto-versions via `MAX(version) + 1`; `activatePolicy()` supersedes previous active policy first (enforcing single-active-per-tenant invariant)
+- `GdprRedactionService` — regex-based PII detection and redaction for: email, E.164 phone, Visa/MC/Amex credit cards, SSN, JWT Bearer tokens, API keys; `containsPii()` for pre-check; `redact()` replaces all matches with `[REDACTED]`
+- `AuditLogService` — `NamedParameterJdbcTemplate` insert to `audit_log` table with JSONB detail payload; no FK constraints by design (survives entity deletion)
+- `PolicyConfig` — `@Configuration` wiring all beans
+- Unit tests (14 tests, 0 failures): `SpelPolicyEngineTest` (no-policy allow, latency block, error alert, no-match allow, block-over-alert priority, malformed YAML safety), `GdprRedactionServiceTest` (email, credit card, SSN, JWT, clean passthrough, null safety, multi-PII)
+
+### Verification result
+`mvn test -pl aether-policy` — 14 tests, 0 failures.
 
 ---
 
