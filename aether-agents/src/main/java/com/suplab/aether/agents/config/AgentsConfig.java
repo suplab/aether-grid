@@ -1,0 +1,44 @@
+package com.suplab.aether.agents.config;
+
+import com.suplab.aether.agents.governance.GovernanceAgent;
+import com.suplab.aether.agents.hallucination.HallucinationDetectorAgent;
+import com.suplab.aether.agents.llm.LlmClient;
+import com.suplab.aether.agents.orchestrator.AgentOrchestrator;
+import com.suplab.aether.agents.registry.AgentRegistry;
+import com.suplab.aether.agents.retry.RetryAgent;
+import com.suplab.aether.agents.spi.Agent;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+
+import java.util.List;
+
+@Configuration
+@Import(com.suplab.aether.agents.llm.LlmClientConfig.class)
+public class AgentsConfig {
+
+    @Bean
+    public GovernanceAgent governanceAgent(LlmClient llmClient) {
+        return new GovernanceAgent(llmClient);
+    }
+
+    @Bean
+    public RetryAgent retryAgent(LlmClient llmClient) {
+        return new RetryAgent(llmClient);
+    }
+
+    @Bean
+    public HallucinationDetectorAgent hallucinationDetectorAgent(LlmClient llmClient) {
+        return new HallucinationDetectorAgent(llmClient);
+    }
+
+    @Bean
+    public AgentRegistry agentRegistry(List<Agent> agents) {
+        return new AgentRegistry(agents);
+    }
+
+    @Bean
+    public AgentOrchestrator agentOrchestrator(AgentRegistry agentRegistry) {
+        return new AgentOrchestrator(agentRegistry);
+    }
+}

@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 7 — Agent Subsystem
+**Active Phase:** Phase 8 — Policy Engine
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -23,7 +23,7 @@
 | 4 | Core Domain Model + LLM Abstraction | ✅ Complete | 1 |
 | 5 | Proxy Layer | ✅ Complete | 1 |
 | 6 | Memory Layer | ✅ Complete | 1 |
-| 7 | Agent Subsystem | 📋 Planned | — |
+| 7 | Agent Subsystem | ✅ Complete | 1 |
 | 8 | Policy Engine | 📋 Planned | — |
 | 9 | Admin REST API + Observability | 📋 Planned | — |
 | 10 | Advanced Agents | 📋 Planned | — |
@@ -202,9 +202,22 @@
 
 ---
 
-## Phase 7 — Agent Subsystem 📋
+## Phase 7 — Agent Subsystem ✅
 
-_Not yet started._
+**Commit:** `feat(agents): implement orchestrator, governance, retry, and hallucination detector agents`
+
+### What was done
+
+- `AgentOrchestrator` — dispatches `AgentInput` to all registered agents matching the capability; enforces `MAX_ITERATIONS=5` guard; `orchestrateParallel()` runs independent inputs concurrently via `VirtualThreadPerTaskExecutor` + `CompletableFuture.allOf()`
+- `OrchestrationResult` record — aggregates all outputs; `requiresHumanReview()` (BLOCK + not auto-enforced), `hasAutoBlock()` (BLOCK + auto-enforced), `highestSeverityDecision()` (severity ranking: BLOCK > ALERT > SUGGEST > DEFER > ALLOW)
+- `GovernanceAgent` — queries LLM with JSON response protocol; parses `decision`/`confidence`/`rationale` from response; defaults to ALLOW on LLM failure or parse error; respects confidence gate
+- `RetryAgent` — counts failure/timeout memories from context; skips LLM for zero-failure calls (fast path); suggests exponential backoff on LLM failure
+- `HallucinationDetectorAgent` — validates LLM-generated governance rules against memory patterns; defaults to ALERT when LLM unavailable; requires >= 1 memory record for meaningful detection
+- `AgentsConfig` — `@Configuration` wiring all agent beans + registry + orchestrator via constructor injection
+- Unit tests (14 tests, 0 failures): `AgentOrchestratorTest` (dispatch, no-agent, human review, auto-block), `AgentRegistryTest` (capability lookup, kill-switch, enable/disable), `GovernanceAgentTest` (ALLOW/BLOCK parse, confidence gate, LLM failure fallback)
+
+### Verification result
+`mvn test -pl aether-agents` — 14 tests, 0 failures.
 
 ---
 
