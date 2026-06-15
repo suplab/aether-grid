@@ -73,7 +73,7 @@
 | `-parameters` compiler flag — required for Spring MVC path variable name resolution | ✅ |
 | JaCoCo 80% line coverage gate | ✅ |
 | Maven Enforcer plugin (Java 21+, Maven 3.9+) | ✅ |
-| `aether-core/pom.xml` — pure domain module (no Spring) | ✅ |
+| `aether-domain/pom.xml` — pure domain module (no Spring) | ✅ |
 | `aether-memory/pom.xml` — spring-data-jdbc, postgresql, pgvector, spring-kafka | ✅ |
 | `aether-agents/pom.xml` — RestClient for Ollama, jackson-databind, micrometer-core | ✅ |
 | `aether-policy/pom.xml` — spring-data-jdbc, jackson-dataformat-yaml, flyway | ✅ |
@@ -118,7 +118,7 @@
 
 ## Phase 4 — Core Domain Model + LLM Abstraction ✅
 
-**Goal:** `aether-core` compiles with domain model. Multi-provider LLM abstraction operational. Unit tests pass at ≥80% line coverage.
+**Goal:** `aether-domain` compiles with domain model. Multi-provider LLM abstraction operational. Unit tests pass at ≥80% line coverage.
 
 | Deliverable | Status |
 |---|---|
@@ -141,7 +141,7 @@
 
 **Commit:** `feat(core): implement domain model, events, ports, and multi-provider LLM abstraction`
 
-**Verification:** `mvn test -pl aether-core` — 19 tests, 0 failures.
+**Verification:** `mvn test -pl aether-domain` — 19 tests, 0 failures.
 
 ---
 

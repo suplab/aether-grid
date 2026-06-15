@@ -97,11 +97,11 @@
 ### What was done
 
 - `pom.xml` (parent) — Spring Boot 3.3.5 BOM, Spring Cloud 2023.0.3 BOM, Resilience4j 2.2.0 BOM, Testcontainers BOM. Java 21 compiler with `--enable-preview`. Maven Enforcer requires Java 21+ and Maven 3.9+. JaCoCo 80% line coverage gate. All internal module versions managed centrally.
-- `aether-core/pom.xml` — jakarta.validation-api, slf4j-api, assertj (test)
+- `aether-domain/pom.xml` — jakarta.validation-api, slf4j-api, assertj (test)
 - `aether-memory/pom.xml` — spring-boot-starter, spring-data-jdbc, postgresql, pgvector, spring-kafka, testcontainers-postgresql/kafka
-- `aether-agents/pom.xml` — aether-core + aether-memory, spring-boot-starter, spring-kafka, spring-web (RestClient for Ollama), jackson-databind, mockito
-- `aether-policy/pom.xml` — aether-core, spring-boot-starter, spring-data-jdbc, postgresql, spring-kafka, jackson-dataformat-yaml, flyway-core, flyway-database-postgresql
-- `aether-proxy/pom.xml` — aether-core + aether-policy, spring-cloud-starter-gateway, circuit-breaker-reactor-resilience4j, spring-data-redis-reactive, spring-kafka, spring-data-jdbc, actuator, micrometer-prometheus, reactor-test
+- `aether-agents/pom.xml` — aether-domain + aether-memory, spring-boot-starter, spring-kafka, spring-web (RestClient for Ollama), jackson-databind, mockito
+- `aether-policy/pom.xml` — aether-domain, spring-boot-starter, spring-data-jdbc, postgresql, spring-kafka, jackson-dataformat-yaml, flyway-core, flyway-database-postgresql
+- `aether-proxy/pom.xml` — aether-domain + aether-policy, spring-cloud-starter-gateway, circuit-breaker-reactor-resilience4j, spring-data-redis-reactive, spring-kafka, spring-data-jdbc, actuator, micrometer-prometheus, reactor-test
 - `aether-api/pom.xml` — all library modules, spring-boot-starter-web, spring-security, oauth2-resource-server, spring-data-jdbc, spring-validation, actuator, micrometer-prometheus, micrometer-tracing-bridge-otel, opentelemetry-exporter-otlp, springdoc-openapi 2.6.0, spring-security-test
 - `aether-infra/pom.xml` — pom packaging only (no Java source)
 - `aether-proxy/src/main/java/.../AetherProxyApplication.java` — Spring Boot entry point (port 8080)
@@ -136,7 +136,7 @@
 
 ### What was done
 
-**`aether-core` — pure domain (no Spring dependency):**
+**`aether-domain` — pure domain (no Spring dependency):**
 - Value objects (Java 21 records): `ApiCallId`, `TenantId`, `ApiEndpoint`, `CallMetrics`, `MemoryRecord`
 - Enums: `CallOutcome`, `HttpMethod`, `MemoryType`, `TenantStatus`
 - Aggregates: `ApiCall` (raises `ApiCallRecordedEvent` on creation, pulls events after dispatch), `Tenant` (lifecycle: ACTIVE → SUSPENDED / DEPROVISIONED)
@@ -159,7 +159,7 @@
 - `AgentRegistry` — Spring-injected `List<Agent>`, `disableAgent(type)` kill-switch, `findByCapability()`
 
 ### Verification result
-`mvn test -pl aether-core` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
+`mvn test -pl aether-domain` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
 
 ---
 
@@ -420,7 +420,7 @@
 
 ### What was done
 
-**`aether-core` — new domain types:**
+**`aether-domain` — new domain types:**
 - `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN`
 - `AgentFeedback` record: `id`, `tenantId`, `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`, `recordedAt`
 - `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()`
@@ -442,9 +442,9 @@
 
 | File | Change |
 |---|---|
-| `aether-core/.../domain/DecisionOutcome.java` | Created — enum |
-| `aether-core/.../domain/AgentFeedback.java` | Created — record |
-| `aether-core/.../ports/AgentFeedbackPort.java` | Created — port interface |
+| `aether-domain/.../domain/DecisionOutcome.java` | Created — enum |
+| `aether-domain/.../domain/AgentFeedback.java` | Created — record |
+| `aether-domain/.../ports/AgentFeedbackPort.java` | Created — port interface |
 | `aether-agents/.../spi/AgentCapability.java` | Updated — added `SELF_IMPROVEMENT` |
 | `aether-agents/.../selfimproving/SelfImprovingAgent.java` | Created |
 | `aether-api/.../service/AgentLearningService.java` | Created |
