@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aether-proxy
+  namespace: aether-grid
+  labels:
+    app.kubernetes.io/name: aether-proxy
+    app.kubernetes.io/part-of: aether-grid
+    app.kubernetes.io/component: data-plane
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aether-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aether-proxy
+        app.kubernetes.io/part-of: aether-grid
+        app.kubernetes.io/component: data-plane
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: aether-proxy
+
+      containers:
+        - name: aether-proxy
+          image: ghcr.io/suplab/aether-proxy:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          env:
+            - name: POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aether-proxy-secrets
+                  key: postgres-url
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: aether-proxy-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aether-proxy-secrets
+                  key: postgres-password
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aether-proxy-secrets
+                  key: redis-url
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: aether-proxy-config
+                  key: kafka-bootstrap-servers
+            - name: RATE_LIMIT_RPS
+              valueFrom:
+                configMapKeyRef:
+                  name: aether-proxy-config
+                  key: rate-limit-rps
+            - name: RATE_LIMIT_BURST
+              valueFrom:
+                configMapKeyRef:
+                  name: aether-proxy-config
+                  key: rate-limit-burst
+            - name: OUTBOX_RELAY_INTERVAL_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: aether-proxy-config
+                  key: outbox-relay-interval-ms
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: aether-proxy-config
+                  key: spring-profiles-active
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}

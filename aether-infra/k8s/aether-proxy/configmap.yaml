@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aether-proxy-config
+  namespace: aether-grid
+  labels:
+    app.kubernetes.io/name: aether-proxy
+    app.kubernetes.io/part-of: aether-grid
+    app.kubernetes.io/component: data-plane
+data:
+  kafka-bootstrap-servers: "kafka:9092"
+  rate-limit-rps: "100"
+  rate-limit-burst: "200"
+  outbox-relay-interval-ms: "5000"
+  spring-profiles-active: "prod"
