@@ -11,8 +11,8 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>aether-core</artifactId>
-    <name>Aether :: Core</name>
+    <artifactId>aether-domain</artifactId>
+    <name>Aether :: Domain</name>
     <description>Shared domain models, sealed domain events, and outbound port interfaces</description>
 
     <dependencies>

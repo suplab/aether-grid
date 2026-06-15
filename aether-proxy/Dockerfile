@@ -5,7 +5,7 @@ WORKDIR /workspace
 # Copy parent POM and all module POMs first so Maven can resolve the reactor
 # and the dependency layer is cached independently of source changes.
 COPY pom.xml .
-COPY aether-core/pom.xml    aether-core/
+COPY aether-domain/pom.xml    aether-domain/
 COPY aether-memory/pom.xml  aether-memory/
 COPY aether-agents/pom.xml  aether-agents/
 COPY aether-policy/pom.xml  aether-policy/
@@ -19,8 +19,8 @@ COPY aether-infra/pom.xml   aether-infra/
 RUN mvn dependency:go-offline -B -q
 
 # Copy source trees for every module that aether-proxy depends on (-am walks
-# the reactor graph: aether-core, aether-policy) plus aether-proxy itself.
-COPY aether-core/src    aether-core/src
+# the reactor graph: aether-domain, aether-policy) plus aether-proxy itself.
+COPY aether-domain/src    aether-domain/src
 COPY aether-policy/src  aether-policy/src
 COPY aether-proxy/src   aether-proxy/src
 COPY aether-infra/src   aether-infra/src
