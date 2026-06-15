@@ -58,4 +58,12 @@ public class AgentRegistry {
     public boolean isEnabled(String agentType) {
         return !disabledAgents.contains(agentType);
     }
+
+    public List<String> registeredTypes() {
+        return agents.stream()
+                .map(Agent::agentType)
+                .distinct()
+                .sorted()
+                .toList();
+    }
 }
