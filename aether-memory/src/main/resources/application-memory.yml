@@ -1,0 +1,23 @@
+aether:
+  memory:
+    # Ollama embedding service (all-MiniLM-L6-v2 produces 384-dim vectors)
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model: ${EMBEDDING_MODEL:all-minilm}
+    # Scheduled decay: 3am daily
+    decay-cron: ${MEMORY_DECAY_CRON:0 0 3 * * *}
+    # Scheduled compaction: 4am every Sunday
+    compaction-cron: ${MEMORY_COMPACTION_CRON:0 0 4 * * SUN}
+
+  kafka:
+    topics:
+      api-calls: ${KAFKA_TOPIC_API_CALLS:aether.api.calls}
+      agent-decisions: ${KAFKA_TOPIC_AGENT_DECISIONS:aether.agent.decisions}
+
+spring:
+  kafka:
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:aether-memory}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer

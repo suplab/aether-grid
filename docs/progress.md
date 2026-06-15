@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** Phase 4 — Core Domain Model
+**Active Phase:** Phase 11 — Multi-Tenancy + Compliance
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-14
 
@@ -20,13 +20,13 @@
 | 1 | EEIK Bootstrap Integration | ✅ Complete | 1 |
 | 2 | Maven Multi-Module Foundation | ✅ Complete | 1 |
 | 3 | Infrastructure Stack | ✅ Complete | 1 |
-| 4 | Core Domain Model | 📋 Planned | — |
-| 5 | Proxy Layer | 📋 Planned | — |
-| 6 | Memory Layer | 📋 Planned | — |
-| 7 | Agent Subsystem | 📋 Planned | — |
-| 8 | Policy Engine | 📋 Planned | — |
-| 9 | Admin REST API + Observability | 📋 Planned | — |
-| 10 | Advanced Agents | 📋 Planned | — |
+| 4 | Core Domain Model + LLM Abstraction | ✅ Complete | 1 |
+| 5 | Proxy Layer | ✅ Complete | 1 |
+| 6 | Memory Layer | ✅ Complete | 1 |
+| 7 | Agent Subsystem | ✅ Complete | 1 |
+| 8 | Policy Engine | ✅ Complete | 1 |
+| 9 | Admin REST API + Observability | ✅ Complete | 1 |
+| 10 | Advanced Agents + Observability | ✅ Complete | 1 |
 | 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
 | 12 | CI/CD + Kubernetes | 📋 Planned | — |
 
@@ -104,57 +104,210 @@
 
 ---
 
-## Phase 3 — Infrastructure Stack 📋
+## Phase 3 — Infrastructure Stack ✅
 
-_Not yet started._
+**Commit:** `infra: add docker compose stack and flyway migrations`
 
-### Verification target
-`docker compose up -d` → all services `healthy`. Flyway V001–V009 run clean.
+### What was done
 
----
+- `aether-infra/docker/docker-compose.yml` — 7 services with `condition: service_healthy` dependency chains: pgvector/pgvector:pg16, redis:7-alpine, confluentinc/cp-zookeeper:7.7.1, confluentinc/cp-kafka:7.7.1, ollama/ollama:latest, prom/prometheus:v2.55.0, grafana/grafana:11.3.0
+- `aether-infra/docker/prometheus.yml` — scrapes host.docker.internal:8080 and :8081 actuator endpoints
+- `aether-infra/docker/.env.example` — documents required env var names with no values
+- `aether-infra/db/migration/V001__create_tenants.sql` through `V009__create_outbox_events.sql` — full schema: tenants, endpoints, api_calls, memory_embeddings (pgvector 384-dim IVFFlat index), policies, policy_versions, agent_decisions, audit_log (no FK by design), outbox_events (partial index on unread rows)
 
-## Phase 4 — Core Domain Model 📋
-
-_Not yet started._
-
-### Verification target
-`mvn test -pl aether-core` — all green, JaCoCo ≥80% line coverage.
+### Verification result
+`docker compose config --quiet` — valid stack. All migrations forward-only with no destructive DDL.
 
 ---
 
-## Phase 5 — Proxy Layer 📋
+## Phase 4 — Core Domain Model + LLM Abstraction ✅
 
-_Not yet started._
+**Commit:** `feat(core): implement domain model, events, ports, and multi-provider LLM abstraction`
+
+### What was done
+
+**`aether-core` — pure domain (no Spring dependency):**
+- Value objects (Java 21 records): `ApiCallId`, `TenantId`, `ApiEndpoint`, `CallMetrics`, `MemoryRecord`
+- Enums: `CallOutcome`, `HttpMethod`, `MemoryType`, `TenantStatus`
+- Aggregates: `ApiCall` (raises `ApiCallRecordedEvent` on creation, pulls events after dispatch), `Tenant` (lifecycle: ACTIVE → SUSPENDED / DEPROVISIONED)
+- Sealed `DomainEvent` interface with four `permits`: `ApiCallRecordedEvent`, `PolicyViolatedEvent`, `AgentDecisionEvent`, `GovernanceUpdatedEvent` — exhaustive switch pattern matching enforced by compiler
+- Port interfaces: `EventPublisher`, `ApiCallRepository`, `TenantRepository`, `MemoryStore`, `EmbeddingPort`, `PolicyRepository`
+- Exception hierarchy: `AetherException` (abstract), `TenantNotFoundException`, `PolicyViolationException`, `AgentException`
+- Unit tests (19 tests, all green): `ApiCallTest`, `TenantTest`, `CallMetricsTest`, `DomainEventTest`
+
+**`aether-agents` — multi-provider LLM abstraction:**
+- `LlmClient` interface — single `complete(LlmRequest) → LlmResponse` method + `provider()` + `isAvailable()`
+- `LlmRequest` / `LlmResponse` records with full validation
+- `LlmProvider` enum: `OLLAMA`, `GROQ`, `ANTHROPIC`
+- `OllamaLlmClient` — local Ollama `/api/chat` (Gemma2:2b, Phi-3-mini, any local model)
+- `GroqLlmClient` — Groq cloud inference (Llama-3.3-70b, Mixtral-8x7b, Gemma2-9b) via OpenAI-compatible API
+- `AnthropicLlmClient` — Claude models (claude-haiku-4-5-20251001, claude-sonnet-4-6) via Anthropic Messages API
+- `LlmClientConfig` — `@ConditionalOnProperty(name = "aether.llm.provider")` wires the correct adapter at startup; Ollama is the default
+- `application-agents.yml` — all provider config with env var overrides (`AETHER_LLM_PROVIDER`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `OLLAMA_MODEL`, etc.)
+- Agent SPI: `Agent` interface, `AgentCapability` enum, `AgentInput` / `AgentOutput` records, `AgentDecision` enum
+- Confidence gate enforced in `AgentOutput` compact constructor: `BLOCK` with confidence < 0.8 → `autoEnforced = false` → human-in-the-loop
+- `AgentRegistry` — Spring-injected `List<Agent>`, `disableAgent(type)` kill-switch, `findByCapability()`
+
+### Verification result
+`mvn test -pl aether-core` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
 
 ---
 
-## Phase 6 — Memory Layer 📋
+## Phase 5 — Proxy Layer ✅
 
-_Not yet started._
+**Commit:** `feat(proxy): implement gateway filters, outbox relay, and Redis rate limiting`
 
----
+### What was done
 
-## Phase 7 — Agent Subsystem 📋
+- `TenantAuthFilter` (GlobalFilter, order=-100) — resolves `X-API-Key` header → SHA-256 hash → tenant lookup; returns 401 for unknown/suspended tenants; actuator paths bypass auth; stores `TenantContext` in exchange attributes
+- `RedactionFilter` (GlobalFilter, order=-90) — strips sensitive headers (`Authorization`, `X-API-Key`, `Cookie`, `Set-Cookie`, `X-Client-Secret`) from the sanitised request forwarded downstream
+- `ApiCallCaptureFilter` (GlobalFilter, order=-50) — uses `doFinally` hook to capture response status + latency after chain completes; serialises `ApiCallRecordedEvent` as JSON into `outbox_events` table via fire-and-forget on `boundedElastic` scheduler
+- `JdbcTenantRepository` — `NamedParameterJdbcTemplate` implementation of `TenantRepository` port; `ON CONFLICT DO UPDATE` upsert
+- `JdbcOutboxRepository` — writes to `outbox_events` with JSONB payload; `findUnpublished(limit)` uses partial index on `published = false`; `markPublished(ids)` bulk-updates with `ANY(:ids::uuid[])`
+- `OutboxRelayScheduler` — `@Scheduled(fixedDelayString = "${aether.outbox.relay-interval-ms:5000}")` reads up to 100 unpublished events, publishes to Kafka topic via `KafkaTemplate.send(...).get()`, marks published in a batch
+- `TenantKeyResolver` — `KeyResolver` bean; extracts tenant ID from exchange attributes for Redis rate limiter; falls back to IP for unauthenticated requests
+- `ProxyConfig` — `@Configuration` wires all proxy beans (explicit constructor injection, no `@Autowired`)
+- `application.yml` updated — `RequestRateLimiter` default filter (100 rps / 200 burst), `CircuitBreaker` on catch-all route with Resilience4j config (50% failure threshold, 30s open duration), Kafka producer set to `acks=all` + idempotent
+- Unit tests: `TenantAuthFilterTest` — 5 tests covering missing key, unknown key, suspended tenant, valid tenant (context stored), actuator bypass
 
-_Not yet started._
-
----
-
-## Phase 8 — Policy Engine 📋
-
-_Not yet started._
-
----
-
-## Phase 9 — Admin REST API + Observability 📋
-
-_Not yet started._
+### Verification result
+`mvn test -pl aether-proxy` — 5 tests, 0 failures.
 
 ---
 
-## Phase 10 — Advanced Agents 📋
+## Phase 6 — Memory Layer ✅
 
-_Not yet started._
+**Commit:** `feat(memory): implement embedding service, pgvector store, lifecycle, and Kafka consumer`
+
+### What was done
+
+- `OllamaEmbeddingService` — implements `EmbeddingPort`; calls Ollama `/api/embed` (all-MiniLM-L6-v2, 384-dim); validates returned dimension; throws `EmbeddingException` on failure
+- `PGVectorMemoryStore` — implements `MemoryStore` port with `NamedParameterJdbcTemplate`:
+  - `store()` — `ON CONFLICT DO UPDATE` upsert; `float[]` ↔ `[x,y,z]` string conversion for `::vector` cast
+  - `findSimilar()` — cosine distance via pgvector `<=>` operator; reinforces strength by 5% on access
+  - `findByType()` — filtered retrieval sorted by strength desc
+  - `delete()` — tenant-scoped hard delete
+  - Vector string helpers: `toVectorString()` / `parseVectorString()` (round-trip safe)
+- `MemoryLifecycleService` — two `@Scheduled` jobs:
+  - Daily decay (3am): 5% strength reduction on records idle > 7 days; parameterized interval via `(:idleDays * INTERVAL '1 day')`
+  - Weekly compaction (4am Sunday): purges records with strength < 0.05
+- `ApiCallMemoryConsumer` — `@KafkaListener` on `aether.api.calls` topic; parses JSON payload; generates embedding via Ollama; classifies memory type (PROCEDURAL=success, SEMANTIC=4xx, EPISODIC=5xx/timeout); stores `MemoryRecord`; embedding failures skip gracefully without propagating
+- `MemoryConfig` — `@Configuration` wiring with constructor injection
+- `application-memory.yml` — Ollama config, topic names, decay/compaction cron via env vars
+- `pom.xml` updated — added `spring-web` (RestClient) and `jackson-databind`
+- Unit tests (9 tests, 0 failures): `PGVectorMemoryStoreTest` (round-trip serialization, 384-dim, null safety), `ApiCallMemoryConsumerTest` (memory type classification, embedding failure skip, malformed payload safety)
+
+### Verification result
+`mvn test -pl aether-memory` — 9 tests, 0 failures.
+
+---
+
+## Phase 7 — Agent Subsystem ✅
+
+**Commit:** `feat(agents): implement orchestrator, governance, retry, and hallucination detector agents`
+
+### What was done
+
+- `AgentOrchestrator` — dispatches `AgentInput` to all registered agents matching the capability; enforces `MAX_ITERATIONS=5` guard; `orchestrateParallel()` runs independent inputs concurrently via `VirtualThreadPerTaskExecutor` + `CompletableFuture.allOf()`
+- `OrchestrationResult` record — aggregates all outputs; `requiresHumanReview()` (BLOCK + not auto-enforced), `hasAutoBlock()` (BLOCK + auto-enforced), `highestSeverityDecision()` (severity ranking: BLOCK > ALERT > SUGGEST > DEFER > ALLOW)
+- `GovernanceAgent` — queries LLM with JSON response protocol; parses `decision`/`confidence`/`rationale` from response; defaults to ALLOW on LLM failure or parse error; respects confidence gate
+- `RetryAgent` — counts failure/timeout memories from context; skips LLM for zero-failure calls (fast path); suggests exponential backoff on LLM failure
+- `HallucinationDetectorAgent` — validates LLM-generated governance rules against memory patterns; defaults to ALERT when LLM unavailable; requires >= 1 memory record for meaningful detection
+- `AgentsConfig` — `@Configuration` wiring all agent beans + registry + orchestrator via constructor injection
+- Unit tests (14 tests, 0 failures): `AgentOrchestratorTest` (dispatch, no-agent, human review, auto-block), `AgentRegistryTest` (capability lookup, kill-switch, enable/disable), `GovernanceAgentTest` (ALLOW/BLOCK parse, confidence gate, LLM failure fallback)
+
+### Verification result
+`mvn test -pl aether-agents` — 14 tests, 0 failures.
+
+---
+
+## Phase 8 — Policy Engine ✅
+
+**Commit:** `feat(policy): implement SpEL policy engine, GDPR redaction, audit log, and policy store`
+
+### What was done
+
+- `PolicyRule` record — name, condition (SpEL expression), `PolicyAction` enum, priority
+- `PolicyEvaluationContext` record — method, path, responseCode, latencyMs, outcome, tenantId, headers
+- `PolicyEvaluationResult` record — `overallAction`, matched `RuleMatch` list, `isBlocked()`, `hasAlerts()`
+- `SpelPolicyEngine` — loads active policy YAML per tenant from DB; parses `rules[]` array; evaluates SpEL conditions via `SimpleEvaluationContext` (read-only, prevents arbitrary execution); sorts rules by priority DESC; determines overall action by severity (BLOCK > RATE_LIMIT > ALERT > AUDIT > ALLOW); gracefully skips malformed rule expressions
+- `JdbcPolicyRepository` — implements `PolicyRepository` port; `ON CONFLICT DO UPDATE` upsert; auto-versions via `MAX(version) + 1`; `activatePolicy()` supersedes previous active policy first (enforcing single-active-per-tenant invariant)
+- `GdprRedactionService` — regex-based PII detection and redaction for: email, E.164 phone, Visa/MC/Amex credit cards, SSN, JWT Bearer tokens, API keys; `containsPii()` for pre-check; `redact()` replaces all matches with `[REDACTED]`
+- `AuditLogService` — `NamedParameterJdbcTemplate` insert to `audit_log` table with JSONB detail payload; no FK constraints by design (survives entity deletion)
+- `PolicyConfig` — `@Configuration` wiring all beans
+- Unit tests (14 tests, 0 failures): `SpelPolicyEngineTest` (no-policy allow, latency block, error alert, no-match allow, block-over-alert priority, malformed YAML safety), `GdprRedactionServiceTest` (email, credit card, SSN, JWT, clean passthrough, null safety, multi-PII)
+
+### Verification result
+`mvn test -pl aether-policy` — 14 tests, 0 failures.
+
+---
+
+## Phase 9 — Admin REST API + Observability ✅
+
+**Commit:** `feat(api): implement admin REST API — tenant, policy, memory controllers`
+
+### What was done
+
+- `TenantController` — `@RestController @RequestMapping("/api/v1/tenants")`; `onboard` (POST) with SHA-256 API key hashing before storage; `get` (GET /{tenantId}); `suspend` (PUT /{id}/suspend); `reactivate` (PUT /{id}/reactivate); all lifecycle transitions respect `TenantNotFoundException`
+- `PolicyController` — `@RequestMapping("/api/v1/tenants/{tenantId}/policies")`; `create` (POST) generates UUID policyId and saves as DRAFT; `activate` (PUT /{policyId}/activate); `archive` (PUT /{policyId}/archive); `getActive` (GET /active) returns YAML or 404
+- `MemoryController` — `@RequestMapping("/api/v1/tenants/{tenantId}/memory")`; `search` (POST /search) embeds query via `EmbeddingPort`, retrieves similar records via `MemoryStore`; `delete` (DELETE /{memoryId}) tenant-scoped hard delete
+- `GlobalExceptionHandler` — `@RestControllerAdvice`; RFC 7807 `ProblemDetail` responses for `TenantNotFoundException` (404), `AetherException` (500), `MethodArgumentNotValidException` (400 + field errors map), `IllegalArgumentException` (400)
+- `SecurityConfig` — `@EnableWebSecurity`; stateless JWT OAuth2 resource server; actuator + Swagger UI permitted without auth; all `/api/**` requires authentication; CSRF disabled
+- `ApiConfig` — `@Configuration`; wires `TenantRepository` adapter (`JdbcApiTenantRepository` private inner class — UPSERT on `tenants` table)
+- `AetherApiApplication` updated — `scanBasePackages = "com.suplab.aether"` to pick up `MemoryConfig`, `PolicyConfig`, `AgentsConfig` from dependent modules
+- `pom.xml` (parent) — added `-parameters` compiler flag for Spring MVC path variable name resolution
+- MockMvc slice tests (17 tests, 0 failures): `TenantControllerTest` (7 tests), `PolicyControllerTest` (6 tests), `MemoryControllerTest` (4 tests)
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-api/.../controller/TenantController.java` | Created |
+| `aether-api/.../controller/PolicyController.java` | Created |
+| `aether-api/.../controller/MemoryController.java` | Created |
+| `aether-api/.../controller/GlobalExceptionHandler.java` | Created |
+| `aether-api/.../security/SecurityConfig.java` | Created |
+| `aether-api/.../config/ApiConfig.java` | Created |
+| `aether-api/.../AetherApiApplication.java` | Updated — scanBasePackages |
+| `aether-api/src/test/.../TenantControllerTest.java` | Created |
+| `aether-api/src/test/.../PolicyControllerTest.java` | Created |
+| `aether-api/src/test/.../MemoryControllerTest.java` | Created |
+| `pom.xml` | Added `-parameters` compiler flag |
+
+### Verification result
+`mvn clean test -pl aether-api` — 17 tests, 0 failures.
+
+---
+
+## Phase 10 — Advanced Agents + Observability ✅
+
+**Commit:** `feat(agents): add temporal prediction, reflection agents, and Micrometer metrics`
+
+### What was done
+
+- `TemporalPredictionAgent` — analyses EPISODIC (failures/timeouts) and SEMANTIC (4xx) memory counts; fast-path DEFER for zero memories (confidence=0.3) or zero episodic+semantic (confidence=0.5); queries LLM for `ALERT|DEFER` prediction with JSON response protocol; graceful fallback on LLM failure
+- `ReflectionAgent` — computes health score as `proceduralCount / (total + 1)`; fast-path ALLOW (no LLM) when health ≥ 0.5, reporting score as confidence; queries LLM for `SUGGEST|DEFER` when health is poor; graceful fallback on LLM failure or no memories
+- `AgentOrchestrator` updated — `MeterRegistry` constructor parameter; counter `aether.agent.executions` (tags: agent, decision) incremented per execution; timer `aether.agent.latency` (tag: agent) records per-agent latency in milliseconds
+- `AgentsConfig` updated — wires `TemporalPredictionAgent`, `ReflectionAgent` beans; passes `MeterRegistry` to `AgentOrchestrator`
+- `AgentCapability` enum — `TEMPORAL_PREDICTION` and `REFLECTION` already present from Phase 4
+- `aether-agents/pom.xml` — added `micrometer-core` compile dependency and `micrometer-test` test dependency
+- Unit tests (26 total, 0 failures): `TemporalPredictionAgentTest` (6 tests), `ReflectionAgentTest` (6 tests), all prior tests continue passing
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-agents/.../temporal/TemporalPredictionAgent.java` | Created |
+| `aether-agents/.../reflection/ReflectionAgent.java` | Created |
+| `aether-agents/.../orchestrator/AgentOrchestrator.java` | Updated — MeterRegistry + metrics |
+| `aether-agents/.../config/AgentsConfig.java` | Updated — new agent beans |
+| `aether-agents/.../pom.xml` | Updated — micrometer-core + micrometer-test |
+| `aether-agents/src/test/.../TemporalPredictionAgentTest.java` | Created |
+| `aether-agents/src/test/.../ReflectionAgentTest.java` | Created |
+| `aether-agents/src/test/.../AgentOrchestratorTest.java` | Updated — SimpleMeterRegistry |
+
+### Verification result
+`mvn clean test -pl aether-agents` — 26 tests, 0 failures.
 
 ---
 

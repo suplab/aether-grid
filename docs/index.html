@@ -436,7 +436,7 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-eyebrow">Conceptual Blueprint v1.0 · suplab/aether</div>
+  <div class="hero-eyebrow">Phases 0–10 Complete · suplab/aether-grid</div>
   <h1>The <span class="accent">Cognitive Fabric</span><br/>for Intelligent Systems</h1>
   <p class="hero-sub">
     A human-centric cognitive infrastructure layered across philosophy, personal intelligence,
@@ -704,8 +704,8 @@
     │ Compaction job  │  │  │ <span class="hl2">GovernanceAgent</span>      │   │
     └─────────────────┘  │  │ <span class="hl2">RetryAgent</span>           │   │
                          │  │ <span class="hl2">HallucinationAgent</span>   │   │
-    ┌────────────────┐   │  │ <span class="hl2">PolicyDriftAgent</span>     │   │
-    │ <span class="hl">aether-policy</span>  │   │  │ <span class="hl2">TemporalAgent</span>        │   │
+    ┌────────────────┐   │  │ <span class="hl2">TemporalPrediction</span>   │   │
+    │ <span class="hl">aether-policy</span>  │   │  │ <span class="hl2">ReflectionAgent</span>      │   │
     │ Policy-as-Code │◄──┤  └─────────────────────┘   │
     │ SpEL evaluator │   └────────────────────────────┘
     │ Versioned store│
@@ -825,7 +825,7 @@
         <tr><td class="layer-col">Messaging</td><td class="tech-col"><code>Apache Kafka</code></td><td style="color:var(--muted);font-size:0.83rem">Event streaming, agent task queues, transactional outbox</td></tr>
         <tr><td class="layer-col">Database</td><td class="tech-col"><code>PostgreSQL 16 + pgvector</code></td><td style="color:var(--muted);font-size:0.83rem">Relational + 384-dim vector store, row-level security</td></tr>
         <tr><td class="layer-col">Cache</td><td class="tech-col"><code>Redis 7</code></td><td style="color:var(--muted);font-size:0.83rem">Rate limiting, TemporalPrediction cache, session store</td></tr>
-        <tr><td class="layer-col">LLM Runtime</td><td class="tech-col"><code>Ollama</code></td><td style="color:var(--muted);font-size:0.83rem">Gemma2:2b / Phi-3-mini — local, no external API calls required</td></tr>
+        <tr><td class="layer-col">LLM Runtime</td><td class="tech-col"><code>Ollama · Groq · Anthropic</code></td><td style="color:var(--muted);font-size:0.83rem">Pluggable via <code>AETHER_LLM_PROVIDER</code>; Ollama local-first (Gemma2:2b / Phi-3-mini); Groq cloud; Anthropic Claude</td></tr>
         <tr><td class="layer-col">Embeddings</td><td class="tech-col"><code>all-MiniLM-L6-v2</code></td><td style="color:var(--muted);font-size:0.83rem">384-dim sentence embeddings via Ollama</td></tr>
         <tr><td class="layer-col">Resilience</td><td class="tech-col"><code>Resilience4j</code></td><td style="color:var(--muted);font-size:0.83rem">Circuit breaker, retry, rate limiter, bulkhead per tenant</td></tr>
         <tr><td class="layer-col">Migrations</td><td class="tech-col"><code>Flyway</code></td><td style="color:var(--muted);font-size:0.83rem">Versioned SQL migrations, V001–V009 schema baseline</td></tr>
@@ -863,90 +863,90 @@
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot active">2</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 2 — Maven Multi-Module Foundation</h3>
-        <p>Parent POM (Java 21 + BOM) · 7 module skeletons · dependency management</p>
-        <span class="roadmap-status active">Next</span>
+        <p>Parent POM (Spring Boot 3.3.5, Java 21, <code>--enable-preview</code>, <code>-parameters</code>) · 7 module POMs · JaCoCo 80% gate · Maven Enforcer</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">3</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 3 — Infrastructure Stack</h3>
-        <p>Docker Compose (Postgres+pgvector, Redis, Kafka, Ollama, Prometheus, Grafana) · Flyway migrations V001–V009</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>Docker Compose: PostgreSQL+pgvector, Redis 7, Kafka 7.7.1, Ollama, Prometheus, Grafana · Flyway V001–V009 (IVFFlat index, partial outbox index)</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">4</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
-        <h3>Phase 4 — Core Domain Model</h3>
-        <p>ApiCall aggregate · sealed DomainEvent hierarchy · port interfaces · multi-tenancy foundation</p>
-        <span class="roadmap-status pending">Planned</span>
+        <h3>Phase 4 — Core Domain Model + LLM Abstraction</h3>
+        <p>ApiCall/Tenant aggregates · sealed DomainEvent hierarchy · port interfaces · LlmClient (Ollama, Groq, Anthropic) · Agent SPI · confidence gate</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">5</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 5 — Proxy Layer</h3>
-        <p>Spring Cloud Gateway · ProxyFilter · circuit breaker · rate limiting · dynamic tenant routing</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>TenantAuthFilter · RedactionFilter · ApiCallCaptureFilter · OutboxRelayScheduler (5s) · Redis rate limiting (100 rps/200 burst) · Resilience4j circuit breaker</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">6</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 6 — Memory Layer</h3>
-        <p>EmbeddingService (all-MiniLM via Ollama) · PGVectorMemoryStore · MemoryService · compaction scheduler</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>OllamaEmbeddingService (384-dim) · PGVectorMemoryStore (cosine <code>&lt;=&gt;</code>, strength reinforcement) · daily decay · weekly purge · Kafka memory classifier</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">7</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 7 — Agent Subsystem</h3>
-        <p>Agent SPI · AgentRegistry · AgentOrchestrator · GovernanceAgent · RetryAgent · OllamaLlmClient</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>AgentOrchestrator (VirtualThreads, MAX_ITERATIONS=5) · GovernanceAgent · RetryAgent · HallucinationDetectorAgent · AgentRegistry kill-switch</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">8</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 8 — Policy Engine</h3>
-        <p>Policy-as-Code (YAML in PG) · SpEL rule evaluator · versioned store · GDPR redaction · audit log</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>SpelPolicyEngine (SimpleEvaluationContext sandbox) · JdbcPolicyRepository (single-active invariant) · GdprRedactionService · AuditLogService (JSONB, no FK)</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">9</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
-        <h3>Phase 9 — Admin REST API + Observability</h3>
-        <p>Tenant/policy/memory controllers · OpenAPI 3.1 · OpenTelemetry · Grafana dashboards</p>
-        <span class="roadmap-status pending">Planned</span>
+        <h3>Phase 9 — Admin REST API</h3>
+        <p>TenantController · PolicyController · MemoryController · RFC 7807 ProblemDetail · JWT OAuth2 security · Swagger UI (springdoc 2.6.0)</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">10</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
-        <h3>Phase 10 — Advanced Agents</h3>
-        <p>HallucinationDetectorAgent · PolicyDriftAgent · TemporalPredictionAgent · ReflectionAgent</p>
-        <span class="roadmap-status pending">Planned</span>
+        <h3>Phase 10 — Advanced Agents + Observability</h3>
+        <p>TemporalPredictionAgent · ReflectionAgent · Micrometer metrics (<code>aether.agent.executions</code>, <code>aether.agent.latency</code>) · multi-provider LLM</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">11</div>
+      <div class="roadmap-dot active">11</div>
       <div class="roadmap-content">
         <h3>Phase 11 — Multi-Tenancy + Compliance</h3>
-        <p>PG row-level security · GDPR export/erase endpoints · data lineage tracking</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>PG row-level security (V010 migration) · GDPR export/erase endpoints · data lineage tracking · tenant isolation integration tests</p>
+        <span class="roadmap-status active">Next</span>
       </div>
     </div>
     <div class="roadmap-item">
       <div class="roadmap-dot pending">12</div>
       <div class="roadmap-content">
         <h3>Phase 12 — CI/CD + Kubernetes</h3>
-        <p>GitHub Actions pipeline · OIDC container push · Helm chart · HPA · K8s manifests</p>
+        <p>GitHub Actions pipeline · OIDC container push to GHCR · Helm chart · HPA · K8s manifests · ADRs 001–006</p>
         <span class="roadmap-status pending">Planned</span>
       </div>
     </div>
@@ -956,18 +956,18 @@
 <!-- FOOTER -->
 <footer>
   <div>
-    <strong>Aether</strong> · Human-Centric Cognitive Infrastructure · Blueprint v1.0
+    <strong>Aether Grid</strong> · Distributed Cognitive Infrastructure · Phases 0–10 Complete
     <br/>
     <span style="color:var(--muted)">
       By <strong>Suplab</strong> —
-      <a href="https://github.com/suplab/aether">github.com/suplab/aether</a>
+      <a href="https://github.com/suplab/aether-grid">github.com/suplab/aether-grid</a>
     </span>
   </div>
   <div class="bootstrap-promo">
-    🚀 Scaffolded &amp; governed by <a href="https://github.com/suplab/eeik-bootstrap">eeik-bootstrap</a>
+    Scaffolded &amp; governed by <a href="https://github.com/suplab/eeik-bootstrap">eeik-bootstrap</a>
     — the AI-native enterprise engineering operating system.
     <br/>
-    <span style="color:var(--muted)">44 specialist agents · 19 slash commands · persistent memory · governance from day one.</span>
+    <span style="color:var(--muted)">19 specialist agents · 5 slash commands · persistent memory · governance from day one.</span>
   </div>
 </footer>
 

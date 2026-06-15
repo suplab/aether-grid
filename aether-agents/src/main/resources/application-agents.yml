@@ -1,0 +1,23 @@
+aether:
+  llm:
+    # Set to: ollama | groq | anthropic
+    provider: ${AETHER_LLM_PROVIDER:ollama}
+
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      # Local Ollama models — no API key required
+      model: ${OLLAMA_MODEL:gemma2:2b}
+
+    groq:
+      # Groq provides HuggingFace-origin models (Llama, Mixtral, Gemma) via cloud inference
+      # Set GROQ_API_KEY environment variable — never commit API keys
+      api-key: ${GROQ_API_KEY:}
+      # Available models: llama-3.3-70b-versatile, mixtral-8x7b-32768, gemma2-9b-it
+      model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+
+    anthropic:
+      # Claude models via Anthropic API
+      # Set ANTHROPIC_API_KEY environment variable — never commit API keys
+      api-key: ${ANTHROPIC_API_KEY:}
+      # Available models: claude-haiku-4-5-20251001, claude-sonnet-4-6
+      model: ${ANTHROPIC_MODEL:claude-haiku-4-5-20251001}
