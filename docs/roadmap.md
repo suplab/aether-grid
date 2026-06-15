@@ -1,6 +1,6 @@
 # Aether — Development Roadmap
 
-> Living document. Updated with each phase completion. Last updated: Phase 14 (all complete).
+> Living document. Updated with each phase completion. Last updated: Phase 15.
 
 ---
 
@@ -363,18 +363,56 @@
 
 ---
 
+## Phase 15 — Kubernetes + Helm Production Hardening ✅
+
+**Goal:** A single `helm install` deploys the full stack on vanilla Kubernetes, AWS EKS, or OpenShift with zero manual manifest editing.
+
+| Deliverable | Status |
+|---|---|
+| `aether-infra/helm/aether-grid/values.yaml` — cloud-agnostic defaults (GHCR, nginx ingress, 2 replicas) | ✅ |
+| `values-aws.yaml` — EKS overrides: ALB Ingress Controller, IRSA serviceAccount annotations, ECR registry, ExternalDNS, ServiceMonitor | ✅ |
+| `values-openshift.yaml` — OCP overrides: `openshift.enabled: true`, Quay.io, Route (edge TLS), ServiceMonitor | ✅ |
+| Helm templates: namespace, aether-api (deployment/service/hpa/configmap/serviceaccount), aether-proxy (same), ingress, route, servicemonitor, _helpers.tpl, NOTES.txt | ✅ |
+| OpenShift-aware securityContext: omits `runAsUser`/`fsGroup` when `openshift.enabled` | ✅ |
+| `startupProbe` on both Deployments | ✅ |
+| `checksum/config` rolling annotation (ConfigMap changes trigger pod restarts) | ✅ |
+| `automountServiceAccountToken: false` on all ServiceAccounts | ✅ |
+| `aether-api/Dockerfile` — multi-stage (eclipse-temurin:21-jdk-noble → :21-jre-noble), non-root uid 1000, `--enable-preview`, `-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError`, liveness HEALTHCHECK | ✅ |
+| `aether-proxy/Dockerfile` — same pattern as aether-api | ✅ |
+| `.dockerignore` at repo root | ✅ |
+| `.github/workflows/docker-build.yml` — OIDC-only, matrix [aether-api, aether-proxy], linux/amd64+arm64, GHCR push on main/release/** | ✅ |
+| `.github/workflows/helm-release.yml` — helm lint (all 3 values files) + template dry-run + OCI push to ghcr.io/suplab/helm on release/** | ✅ |
+
+**Commit:** `build(infra): add Helm chart, multi-stage Dockerfiles, and container CI/CD workflows`
+
+**Verification:** `helm lint aether-infra/helm/aether-grid -f values-aws.yaml -f values-openshift.yaml` — clean. `helm template` dry-run against all three values files produces valid YAML. Docker build matrix green on push to main.
+
+---
+
+## Phase 16 — Aether Core Integration 🔄
+
+**Goal:** AetherGrid becomes the data plane and agent mesh backing a personal Aether Core instance, enabling cross-layer memory sharing and action execution.
+
+| Deliverable | Status |
+|---|---|
+| Aether Core adapter module (`aether-core-bridge`) | 📋 |
+| Cross-layer memory sync protocol | 📋 |
+| Personal cognitive context propagation via `X-Aether-Core-Id` header | 📋 |
+| Aether Core action callbacks via agent decisions | 📋 |
+| Integration test harness (Aether Core stub + AetherGrid) | 📋 |
+
+---
+
 ## Future Considerations
 
 These are tracked but not scoped for the current roadmap:
 
-- **Phase 15 — Kubernetes + Helm production hardening** — Helm chart with configurable values, cert-manager TLS, External Secrets Operator integration, Kubernetes NetworkPolicy
 - **Dynamic agent creation** — spawning new agents at runtime for novel task types
 - **Agent marketplace** — catalog of shareable, versioned agent capabilities
 - **Federated memory** — memory shared across organizational boundaries with consent controls
 - **Edge intelligence** — lightweight agent runtime for IoT / embedded devices
-- **Aether Core integration** — AetherGrid as the data plane backing a personal Aether Core instance
 
 ---
 
-*Last updated: Phase 14 — Dashboard / Control Center (all phases complete)*
+*Last updated: Phase 15 — Kubernetes + Helm Production Hardening*
 *See [Progress](progress.md) for live status · [Architecture](architecture.md) for technical detail*

@@ -1,6 +1,6 @@
 # Aether — Technical Architecture
 
-> Living document. Updated with each phase completion. Last updated: Phase 14.
+> Living document. Updated with each phase completion. Last updated: Phase 15.
 
 ---
 
@@ -574,6 +574,102 @@ The data plane (`aether-proxy`) has a higher ceiling because it handles all inbo
 Operators populate these via their preferred secrets injection mechanism: External Secrets Operator (recommended for production), AWS Secrets Manager, HashiCorp Vault, or `kubectl create secret generic`. The template file is committed; actual values are never committed.
 
 Non-sensitive runtime configuration (Kafka bootstrap servers, JWT issuer, LLM provider selection, rate-limit settings) is in a `ConfigMap` per service and is safe to version-control.
+
+---
+
+## Production Deployment
+
+### Helm Chart Structure (`aether-infra/helm/aether-grid/`)
+
+The Helm chart is the single artefact used for all Kubernetes-based deployments. It supports three deployment flavours selected by values file overlay:
+
+| Flavour | Values file | Ingress type | Registry | Auth |
+|---|---|---|---|---|
+| Vanilla Kubernetes | `values.yaml` (default) | nginx Ingress Controller | GHCR (`ghcr.io/suplab`) | Helm secret or external |
+| AWS EKS | `values-aws.yaml` | AWS ALB (aws-load-balancer-controller) | ECR | IRSA ServiceAccount annotations |
+| OpenShift | `values-openshift.yaml` | OpenShift Route (edge TLS) — Ingress disabled | Quay.io | OCP service account |
+
+**Install commands:**
+
+```bash
+# Vanilla Kubernetes
+helm install aether-grid aether-infra/helm/aether-grid
+
+# AWS EKS
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-aws.yaml
+
+# OpenShift
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-openshift.yaml
+```
+
+**Template inventory (20 files):**
+
+- `_helpers.tpl` — shared name, label, and selector helpers
+- `NOTES.txt` — post-install operator instructions (service URLs, health check commands)
+- `namespace.yaml` — `aether-grid` namespace with standard labels
+- `aether-api/` — Deployment, Service, HPA, ConfigMap, ServiceAccount (5 files)
+- `aether-proxy/` — Deployment, Service, HPA, ConfigMap, ServiceAccount (5 files)
+- `ingress.yaml` — rendered when `openshift.enabled: false`
+- `route.yaml` — OpenShift Route with edge TLS; rendered when `openshift.enabled: true`
+- `servicemonitor.yaml` — Prometheus Operator ServiceMonitor for both services
+
+**Key Helm design decisions:**
+
+- `securityContext` is OpenShift-aware: `runAsUser` and `fsGroup` are omitted when `openshift.enabled: true` to avoid conflicts with OpenShift SCCs. All other security settings (`allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]`) apply on all platforms.
+- `startupProbe` on each Deployment guards slow application context startup before liveness and readiness probes begin.
+- `checksum/config` annotation on each Deployment is computed from the associated ConfigMap content. Helm recalculates this on `helm upgrade`; a changed ConfigMap triggers a rolling pod restart automatically.
+- `automountServiceAccountToken: false` on all ServiceAccounts — tokens are only mounted where IRSA or explicit volume mounts require them.
+
+### Dockerfile Multi-Stage Pattern
+
+Both `aether-api/Dockerfile` and `aether-proxy/Dockerfile` follow the same pattern:
+
+```
+Stage 1 — build (eclipse-temurin:21-jdk-noble)
+  COPY pom.xml files and source
+  RUN mvn package -DskipTests --enable-preview
+
+Stage 2 — runtime (eclipse-temurin:21-jre-noble)
+  RUN useradd --uid 1000 --gid 1000 aether
+  COPY --from=build /app/target/*.jar app.jar
+  USER 1000
+  HEALTHCHECK --interval=30s CMD curl -f /actuator/health/liveness
+  ENTRYPOINT ["java",
+    "--enable-preview",
+    "-XX:+UseContainerSupport",
+    "-XX:MaxRAMPercentage=75.0",
+    "-XX:+ExitOnOutOfMemoryError",
+    "-jar", "app.jar"]
+```
+
+Key choices:
+- JRE runtime image reduces attack surface and image size compared to JDK.
+- `-XX:+UseContainerSupport` makes the JVM respect cgroup memory limits rather than reading host RAM.
+- `-XX:MaxRAMPercentage=75.0` leaves headroom for the OS and sidecar containers.
+- `-XX:+ExitOnOutOfMemoryError` causes the JVM to exit (and Kubernetes to restart the pod) on OOM rather than entering an unresponsive degraded state.
+- `--enable-preview` is required for Java 21 preview features used in Spring Boot 3.3.x sealed class pattern matching.
+- Non-root uid/gid 1000 is created inside the image, not inherited from the base, ensuring consistency across hosts.
+
+### GitHub Actions Container and Helm Pipeline
+
+Two workflows complement the existing CI/CD pipeline introduced in Phase 12:
+
+**`docker-build.yml`** — triggers on push to `main` and `release/**`:
+
+1. OIDC login to GHCR (`docker/login-action`) — no static `DOCKER_PASSWORD` secret stored anywhere
+2. Build matrix runs `aether-api` and `aether-proxy` in parallel
+3. `docker/build-push-action` builds `linux/amd64` and `linux/arm64` layers via QEMU/Buildx
+4. Pushes multi-arch manifest to `ghcr.io/suplab/aether-{api,proxy}:<git-sha>` and `:latest` on main
+
+**`helm-release.yml`** — triggers on push to `release/**`:
+
+1. `helm lint` is run three times: against `values.yaml`, `values-aws.yaml`, and `values-openshift.yaml`
+2. `helm template` dry-run validates all three rendered manifests produce parseable YAML
+3. `helm push` publishes the chart as an OCI artifact to `ghcr.io/suplab/helm/aether-grid:<version>`
+
+All action references are pinned to full commit SHAs. All jobs use `permissions: contents: read` plus `packages: write` only where the GHCR push step requires it.
 
 ---
 

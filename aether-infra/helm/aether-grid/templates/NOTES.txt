@@ -1,0 +1,71 @@
+Aether Grid has been deployed successfully.
+
+Namespace : {{ include "aether-grid.namespace" . }}
+Release   : {{ .Release.Name }}
+Version   : {{ .Chart.AppVersion }}
+
+─── Pod Status ───────────────────────────────────────────────────────────────
+
+  kubectl get pods -n {{ include "aether-grid.namespace" . }}
+
+─── Logs ─────────────────────────────────────────────────────────────────────
+
+  # Control plane (aether-api)
+  kubectl logs -n {{ include "aether-grid.namespace" . }} \
+    -l app.kubernetes.io/name=aether-api --tail=100 -f
+
+  # Data plane (aether-proxy)
+  kubectl logs -n {{ include "aether-grid.namespace" . }} \
+    -l app.kubernetes.io/name=aether-proxy --tail=100 -f
+
+─── Access ───────────────────────────────────────────────────────────────────
+{{- if .Values.openshift.enabled }}
+
+  OpenShift Routes are provisioned by the cluster router.
+
+  Control Plane (aether-api):
+    https://{{ .Values.route.api.host }}
+
+  Data Plane (aether-proxy):
+    https://{{ .Values.route.proxy.host }}
+
+{{- else if .Values.ingress.enabled }}
+
+  Ingress is enabled.  Wait for the load-balancer address:
+
+    kubectl get ingress -n {{ include "aether-grid.namespace" . }}
+
+  Control Plane (aether-api):
+    http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hosts.api.host }}
+
+  Data Plane (aether-proxy):
+    http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hosts.proxy.host }}
+
+{{- else }}
+
+  Ingress is disabled.  Use port-forwarding for local access:
+
+  Control Plane (aether-api):
+    kubectl port-forward -n {{ include "aether-grid.namespace" . }} \
+      svc/aether-api 8081:8081
+    # then open: http://localhost:8081/actuator/health
+
+  Data Plane (aether-proxy):
+    kubectl port-forward -n {{ include "aether-grid.namespace" . }} \
+      svc/aether-proxy 8080:8080
+    # then open: http://localhost:8080/actuator/health
+
+{{- end }}
+
+─── HPA Status ───────────────────────────────────────────────────────────────
+
+  kubectl get hpa -n {{ include "aether-grid.namespace" . }}
+
+─── Secrets ──────────────────────────────────────────────────────────────────
+
+  Secrets are NOT managed by this chart.  Ensure the following Secrets
+  exist in namespace {{ include "aether-grid.namespace" . }} before pods
+  will start (use External Secrets Operator or kubectl create secret):
+
+    {{ .Values.api.secrets.existingSecret }}   (aether-api)
+    {{ .Values.proxy.secrets.existingSecret }}  (aether-proxy)

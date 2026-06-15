@@ -436,7 +436,7 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-eyebrow">All 14 Phases Complete — Production Ready · suplab/aether-grid</div>
+  <div class="hero-eyebrow">All 15 Phases Complete — Production Ready · suplab/aether-grid</div>
   <h1>The <span class="accent">Cognitive Fabric</span><br/>for Intelligent Systems</h1>
   <p class="hero-sub">
     A human-centric cognitive infrastructure layered across philosophy, personal intelligence,
@@ -843,7 +843,7 @@
         <tr><td class="layer-col">Resilience</td><td class="tech-col"><code>Resilience4j</code></td><td style="color:var(--muted);font-size:0.83rem">Circuit breaker, retry, rate limiter, bulkhead per tenant</td></tr>
         <tr><td class="layer-col">Migrations</td><td class="tech-col"><code>Flyway</code></td><td style="color:var(--muted);font-size:0.83rem">Versioned SQL migrations, V001–V012 schema baseline</td></tr>
         <tr><td class="layer-col">Observability</td><td class="tech-col"><code>OTel + Micrometer + Grafana</code></td><td style="color:var(--muted);font-size:0.83rem">Distributed tracing, custom meters, dashboards</td></tr>
-        <tr><td class="layer-col">Container</td><td class="tech-col"><code>Docker Compose → Kubernetes</code></td><td style="color:var(--muted);font-size:0.83rem">Local stack with healthchecks; Helm chart for production</td></tr>
+        <tr><td class="layer-col">Container</td><td class="tech-col"><code>Docker Compose → Kubernetes + Helm</code></td><td style="color:var(--muted);font-size:0.83rem">Local stack with healthchecks; Helm chart for vanilla K8s, AWS EKS, and OpenShift; multi-arch Docker images (amd64 + arm64)</td></tr>
         <tr><td class="layer-col">CI/CD</td><td class="tech-col"><code>GitHub Actions</code></td><td style="color:var(--muted);font-size:0.83rem">Build → test → quality gate → container push (OIDC, no static secrets)</td></tr>
       </tbody>
     </table>
@@ -979,13 +979,21 @@
         <span class="roadmap-status done">Complete</span>
       </div>
     </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot done">✓</div>
+      <div class="roadmap-content">
+        <h3>Phase 15 — Kubernetes + Helm Production Hardening</h3>
+        <p>Helm chart (20 templates) · vanilla K8s / AWS EKS / OpenShift flavours via values overlay · OpenShift-aware securityContext · startupProbe · checksum/config rolling annotation · automountServiceAccountToken: false · multi-stage Dockerfiles (eclipse-temurin:21, non-root uid 1000, <code>-XX:+UseContainerSupport</code>) · docker-build.yml (OIDC, amd64+arm64, GHCR) · helm-release.yml (lint all 3 values + OCI push)</p>
+        <span class="roadmap-status done">Complete</span>
+      </div>
+    </div>
   </div>
 </section>
 
 <!-- FOOTER -->
 <footer>
   <div>
-    <strong>Aether Grid</strong> · Distributed Cognitive Infrastructure · All 14 Phases Complete — Production Ready
+    <strong>Aether Grid</strong> · Distributed Cognitive Infrastructure · All 15 Phases Complete — Production Ready
     <br/>
     <span style="color:var(--muted)">
       By <strong>Suplab</strong> —

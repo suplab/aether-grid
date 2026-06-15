@@ -2,7 +2,7 @@
 
 > A human-centric cognitive computing framework — philosophy, personal intelligence, and distributed autonomous agents.
 
-**Author:** Suplab &nbsp;|&nbsp; **Status:** All 14 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–14 of 14
+**Author:** Suplab &nbsp;|&nbsp; **Status:** All 15 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–15 of 15
 
 ---
 
@@ -57,7 +57,7 @@ Here, **Aether** is the invisible cognitive fabric that connects humans, memorie
 
 ## Aether Grid — Current Implementation
 
-Aether Grid is the distributed intelligence layer implemented in this repository (all 14 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
+Aether Grid is the distributed intelligence layer implemented in this repository (all 15 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
 
 - **Remembers** every API interaction semantically (all-MiniLM-L6-v2 embeddings + metadata in pgvector, 384-dim)
 - **Learns** patterns of successful and failing requests over time (PROCEDURAL/SEMANTIC/EPISODIC/EMOTIONAL memory types)
@@ -115,7 +115,9 @@ aether/
 │   ├── owasp-suppressions.xml     # OWASP Dependency-Check accepted false positives
 │   └── workflows/
 │       ├── ci.yml                 # Every push: Temurin 21, Maven verify, Postgres service, JaCoCo report
-│       └── quality-gate.yml       # PRs to main: Checkstyle (google_checks.xml) + OWASP (failBuildOnCVSS=9)
+│       ├── quality-gate.yml       # PRs to main: Checkstyle (google_checks.xml) + OWASP (failBuildOnCVSS=9)
+│       ├── docker-build.yml       # OIDC, matrix [aether-api, aether-proxy], amd64+arm64, GHCR push
+│       └── helm-release.yml       # helm lint (3 values files) + dry-run + OCI push to ghcr.io/suplab/helm
 ├── docs/
 │   ├── index.html                 # Visual concept page (always in sync)
 │   ├── architecture.md            # Technical architecture deep-dive
@@ -205,7 +207,10 @@ aether/
 │   │   ├── secrets-template.yaml  # Required Secret keys (no values committed)
 │   │   ├── aether-api/            # Deployment, Service, HPA (min 2/max 8), ConfigMap
 │   │   └── aether-proxy/          # Deployment, Service, HPA (min 2/max 16), ConfigMap
-│   └── helm/aether/               # Helm chart for full-stack deployment
+│   ├── helm/aether-grid/          # Helm chart (20 templates)
+│   │   ├── values.yaml            # Cloud-agnostic defaults (GHCR, nginx ingress, 2 replicas)
+│   │   ├── values-aws.yaml        # EKS overrides: ALB, IRSA, ECR, ExternalDNS
+│   │   └── values-openshift.yaml  # OCP overrides: Quay.io, Route (edge TLS), no Ingress
 │
 ├── CLAUDE.md                      # Project brief (eeik-bootstrap template)
 ├── aether.manifest.yaml           # EEIK project manifest
@@ -349,21 +354,26 @@ curl -H "X-API-Key: <raw-key>" \
 open http://localhost:3000
 ```
 
-**Kubernetes deployment** (production):
+**Kubernetes deployment** (production via Helm):
 
 ```bash
-# Create secrets first — never commit actual values
-kubectl create secret generic aether-api-secrets \
-  --from-literal=postgres-url=jdbc:postgresql://... \
-  --from-literal=postgres-user=aether \
-  --from-literal=postgres-password=... \
-  --namespace aether-grid
+# Vanilla Kubernetes
+helm install aether-grid aether-infra/helm/aether-grid
 
-# Apply all manifests (namespace first, then resources)
+# AWS EKS (ALB Ingress Controller, IRSA, ECR)
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-aws.yaml
+
+# OpenShift (Route edge TLS, Quay.io, OCP securityContext)
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-openshift.yaml
+```
+
+Raw Kubernetes manifests are also available for direct `kubectl apply`:
+
+```bash
 kubectl apply -f aether-infra/k8s/namespace.yaml
 kubectl apply -f aether-infra/k8s/
-
-# Verify pods are running
 kubectl get pods -n aether-grid
 ```
 
@@ -392,7 +402,7 @@ export ANTHROPIC_API_KEY=<key>
 |---|---|
 | [Concept & Vision](docs/index.html) | Visual overview of the full Aether ecosystem |
 | [Architecture](docs/architecture.md) | Technical deep-dive: modules, patterns, data model, security |
-| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–14) |
+| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–15) |
 | [Progress](docs/progress.md) | Live development progress tracker |
 | [ADRs](docs/adr/) | Architecture Decision Records |
 

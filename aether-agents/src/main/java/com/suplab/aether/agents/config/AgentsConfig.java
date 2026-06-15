@@ -1,5 +1,7 @@
 package com.suplab.aether.agents.config;
 
+import com.suplab.aether.agents.bridge.AetherCoreBridgeAgent;
+import com.suplab.aether.agents.bridge.AetherCoreProperties;
 import com.suplab.aether.agents.governance.GovernanceAgent;
 import com.suplab.aether.agents.hallucination.HallucinationDetectorAgent;
 import com.suplab.aether.agents.llm.LlmClient;
@@ -11,7 +13,9 @@ import com.suplab.aether.agents.selfimproving.SelfImprovingAgent;
 import com.suplab.aether.agents.spi.Agent;
 import com.suplab.aether.agents.temporal.TemporalPredictionAgent;
 import com.suplab.aether.core.ports.AgentFeedbackPort;
+import com.suplab.aether.core.ports.PersonalContextPort;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -20,6 +24,7 @@ import java.util.List;
 
 @Configuration
 @Import(com.suplab.aether.agents.llm.LlmClientConfig.class)
+@EnableConfigurationProperties(AetherCoreProperties.class)
 public class AgentsConfig {
 
     @Bean
@@ -50,6 +55,11 @@ public class AgentsConfig {
     @Bean
     public SelfImprovingAgent selfImprovingAgent(LlmClient llmClient, AgentFeedbackPort feedbackPort) {
         return new SelfImprovingAgent(llmClient, feedbackPort);
+    }
+
+    @Bean
+    public AetherCoreBridgeAgent aetherCoreBridgeAgent(PersonalContextPort personalContextPort) {
+        return new AetherCoreBridgeAgent(personalContextPort);
     }
 
     @Bean

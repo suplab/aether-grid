@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aether-proxy
+  namespace: {{ include "aether-grid.namespace" . }}
+  labels:
+    {{- include "aether-grid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aether-proxy
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

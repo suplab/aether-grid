@@ -1,0 +1,42 @@
+{{- if and .Values.ingress.enabled (not .Values.openshift.enabled) -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "aether-grid.fullname" . }}
+  namespace: {{ include "aether-grid.namespace" . }}
+  labels:
+    {{- include "aether-grid.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.hosts.api.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.hosts.api.path | default "/" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: aether-api
+                port:
+                  number: 8081
+    - host: {{ .Values.ingress.hosts.proxy.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.hosts.proxy.path | default "/" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: aether-proxy
+                port:
+                  number: 8080
+{{- end }}

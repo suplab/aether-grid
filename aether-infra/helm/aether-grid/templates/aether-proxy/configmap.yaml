@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aether-proxy-config
+  namespace: {{ include "aether-grid.namespace" . }}
+  labels:
+    {{- include "aether-grid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-plane
+data:
+  kafka-bootstrap-servers: {{ .Values.proxy.config.kafkaBootstrapServers | quote }}
+  rate-limit-rps: {{ .Values.proxy.config.rateLimitRps | quote }}
+  rate-limit-burst: {{ .Values.proxy.config.rateLimitBurst | quote }}
+  outbox-relay-interval-ms: {{ .Values.proxy.config.outboxRelayIntervalMs | quote }}
+  spring-profiles-active: {{ .Values.proxy.config.springProfilesActive | quote }}
