@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** All 12 phases complete
+**Active Phase:** All 14 phases complete. Next: Phase 15 — Kubernetes + Helm production hardening.
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-15
 
@@ -29,6 +29,8 @@
 | 10 | Advanced Agents + Observability | ✅ Complete | 1 |
 | 11 | Multi-Tenancy + Compliance | ✅ Complete | 1 |
 | 12 | CI/CD + Kubernetes | ✅ Complete | 1 |
+| 13 | Self-Improving Agents | ✅ Complete | 1 |
+| 14 | Dashboard / Control Center | ✅ Complete | 1 |
 
 ---
 
@@ -401,6 +403,91 @@
 | `aether-infra/k8s/aether-proxy/configmap.yaml` | Created |
 | `aether-infra/k8s/secrets-template.yaml` | Created |
 | `docs/progress.md` | Updated — Phase 12 marked complete |
+
+---
+
+## Phase 13 — Self-Improving Agents ✅
+
+**Commit:** `feat(agents): add feedback loop, self-improving agent, and weekly learning service`
+
+### What was done
+
+**`aether-core` — new domain types:**
+- `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN`
+- `AgentFeedback` record: `id`, `tenantId`, `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`, `recordedAt`
+- `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()`
+
+**`aether-agents` — new agent:**
+- `SelfImprovingAgent` — meta-agent that analyses feedback history and generates improvement suggestions via LLM; `SELF_IMPROVEMENT` capability added to `AgentCapability` enum
+
+**`aether-api` — new service layer and API:**
+- `AgentLearningService` — `@Scheduled` weekly review across all tenants; queries feedback history, invokes `SelfImprovingAgent`, persists suggestions to audit log
+- `LearningConfig` — `@Configuration` wiring for the learning service
+- `AgentController` — `POST /api/v1/tenants/{tenantId}/agents/feedback` (record a decision outcome); `GET /api/v1/tenants/{tenantId}/agents/performance` (performance stats by agent type)
+- `FeedbackRequest` DTO — carries `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`
+- `JdbcAgentFeedbackRepository` — registered in `ApiConfig`; `NamedParameterJdbcTemplate` adapter implementing `AgentFeedbackPort`
+
+**`aether-infra` — new migration:**
+- `V012__agent_feedback.sql` — `agent_feedback` table: `id UUID PK`, `tenant_id`, `agent_type`, `decision_id`, `original_decision`, `original_confidence`, `outcome`, `outcome_detail`, `recorded_at`; RLS policy mirrors existing tenant-scoped tables; index on `(tenant_id, agent_type)` for performance stats query
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-core/.../domain/DecisionOutcome.java` | Created — enum |
+| `aether-core/.../domain/AgentFeedback.java` | Created — record |
+| `aether-core/.../ports/AgentFeedbackPort.java` | Created — port interface |
+| `aether-agents/.../spi/AgentCapability.java` | Updated — added `SELF_IMPROVEMENT` |
+| `aether-agents/.../selfimproving/SelfImprovingAgent.java` | Created |
+| `aether-api/.../service/AgentLearningService.java` | Created |
+| `aether-api/.../config/LearningConfig.java` | Created |
+| `aether-api/.../controller/AgentController.java` | Created |
+| `aether-api/.../dto/FeedbackRequest.java` | Created |
+| `aether-api/.../config/ApiConfig.java` | Updated — `JdbcAgentFeedbackRepository` registration |
+| `aether-infra/db/migration/V012__agent_feedback.sql` | Created |
+
+---
+
+## Phase 14 — Dashboard / Control Center ✅
+
+**Commit:** `feat(api): add dashboard stats service, SSE stream, and self-contained dashboard SPA`
+
+### What was done
+
+**`aether-api` — new service:**
+- `DashboardStatsService` — queries `tenants`, `memory_embeddings`, `policies`, `agent_decisions`, `audit_log` tables to return: system-wide stat snapshot, recent decisions list, memory type breakdown (type + avg strength), agent decision breakdown (agent + decision counts for last 7 days), list of registered agent types from `AgentRegistry`
+
+**`aether-api` — new controller:**
+- `DashboardController` at `/dashboard/**`:
+  - `GET /dashboard/stats` — system stats snapshot (tenant count, total memories, active policies, decisions last 7 days, audit events)
+  - `GET /dashboard/decisions?limit=20` — recent agent decisions with agent type, decision, confidence, rationale, decided_at
+  - `GET /dashboard/memory-breakdown` — memory type counts and average strength per type
+  - `GET /dashboard/agent-breakdown` — per-agent decision counts for the last 7 days
+  - `GET /dashboard/agents` — registered agent types via `AgentRegistry.registeredTypes()`
+  - `GET /dashboard/stream` — SSE endpoint returning a single snapshot; client reconnects every 10 seconds for live updates
+
+**`aether-api` — new static resource:**
+- `aether-api/src/main/resources/static/dashboard.html` — self-contained dark-theme SPA with:
+  - Stat cards (tenant count, memory count, active policies, recent decisions) with 10-second auto-refresh
+  - Agent registry table showing all registered agent types
+  - Memory type breakdown table (type, count, avg strength)
+  - Agent decision breakdown table (agent, decision counts, last 7 days)
+  - Scrollable recent decisions table (agent, decision, confidence, rationale)
+  - SSE live panel consuming `/dashboard/stream`
+
+**Updated components:**
+- `SecurityConfig` — `/dashboard/**` and `/*.html` added to `permitAll()` matchers (no auth required for dashboard)
+- `AgentRegistry` — `registeredTypes()` method added, returning `List<String>` of all registered agent type names
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-api/.../service/DashboardStatsService.java` | Created |
+| `aether-api/.../controller/DashboardController.java` | Created |
+| `aether-api/.../security/SecurityConfig.java` | Updated — `/dashboard/**`, `/*.html` permitted without auth |
+| `aether-agents/.../registry/AgentRegistry.java` | Updated — `registeredTypes()` method |
+| `aether-api/src/main/resources/static/dashboard.html` | Created — self-contained SPA |
 
 ---
 

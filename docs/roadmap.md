@@ -1,6 +1,6 @@
 # Aether — Development Roadmap
 
-> Living document. Updated with each phase completion. Last updated: Phase 12 (all complete).
+> Living document. Updated with each phase completion. Last updated: Phase 14 (all complete).
 
 ---
 
@@ -320,19 +320,61 @@
 
 ---
 
+## Phase 13 — Self-Improving Agents ✅
+
+**Goal:** Agents record decision outcomes and learn from them. A scheduled service reviews feedback weekly and generates improvement suggestions via LLM.
+
+| Deliverable | Status |
+|---|---|
+| `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN` | ✅ |
+| `AgentFeedback` record: id, tenantId, agentType, decisionId, originalDecision, originalConfidence, outcome, outcomeDetail, recordedAt | ✅ |
+| `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()` | ✅ |
+| `SelfImprovingAgent` — meta-agent that analyses feedback history, invokes LLM for suggestions | ✅ |
+| `SELF_IMPROVEMENT` capability added to `AgentCapability` enum | ✅ |
+| `AgentLearningService` — `@Scheduled` weekly review across all tenants | ✅ |
+| `LearningConfig` — `@Configuration` wiring for the learning service | ✅ |
+| `AgentController` — `POST /api/v1/tenants/{tenantId}/agents/feedback` + `GET /api/v1/tenants/{tenantId}/agents/performance` | ✅ |
+| `FeedbackRequest` DTO | ✅ |
+| `JdbcAgentFeedbackRepository` registered in `ApiConfig` | ✅ |
+| `V012__agent_feedback.sql` — `agent_feedback` table with RLS policy and `(tenant_id, agent_type)` index | ✅ |
+
+**Commit:** `feat(agents): add feedback loop, self-improving agent, and weekly learning service`
+
+---
+
+## Phase 14 — Dashboard / Control Center ✅
+
+**Goal:** Operators have a self-contained web dashboard providing real-time visibility into system health, agent activity, memory distribution, and recent decisions without requiring authentication.
+
+| Deliverable | Status |
+|---|---|
+| `DashboardStatsService` — queries tenants, memory_embeddings, policies, agent_decisions, audit_log | ✅ |
+| `GET /dashboard/stats` — system stats snapshot | ✅ |
+| `GET /dashboard/decisions?limit=20` — recent agent decisions | ✅ |
+| `GET /dashboard/memory-breakdown` — memory type counts and avg strength | ✅ |
+| `GET /dashboard/agent-breakdown` — per-agent decision counts last 7 days | ✅ |
+| `GET /dashboard/agents` — registered agent type list via `AgentRegistry.registeredTypes()` | ✅ |
+| `GET /dashboard/stream` — SSE live stream (single snapshot; client reconnects every 10s) | ✅ |
+| `dashboard.html` — self-contained dark-theme SPA (stat cards, tables, SSE panel, 10s auto-refresh) | ✅ |
+| `SecurityConfig` updated — `/dashboard/**` and `/*.html` permitted without auth | ✅ |
+| `AgentRegistry` updated — `registeredTypes()` method added | ✅ |
+
+**Commit:** `feat(api): add dashboard stats service, SSE stream, and self-contained dashboard SPA`
+
+---
+
 ## Future Considerations
 
 These are tracked but not scoped for the current roadmap:
 
-- **Self-improving agents** — agents that learn from feedback and update their own logic
+- **Phase 15 — Kubernetes + Helm production hardening** — Helm chart with configurable values, cert-manager TLS, External Secrets Operator integration, Kubernetes NetworkPolicy
 - **Dynamic agent creation** — spawning new agents at runtime for novel task types
 - **Agent marketplace** — catalog of shareable, versioned agent capabilities
 - **Federated memory** — memory shared across organizational boundaries with consent controls
 - **Edge intelligence** — lightweight agent runtime for IoT / embedded devices
 - **Aether Core integration** — AetherGrid as the data plane backing a personal Aether Core instance
-- **Web dashboard** — real-time governance and memory visualization UI
 
 ---
 
-*Last updated: Phase 12 — CI/CD + Kubernetes (all phases complete)*
+*Last updated: Phase 14 — Dashboard / Control Center (all phases complete)*
 *See [Progress](progress.md) for live status · [Architecture](architecture.md) for technical detail*

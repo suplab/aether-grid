@@ -2,7 +2,7 @@
 
 > A human-centric cognitive computing framework — philosophy, personal intelligence, and distributed autonomous agents.
 
-**Author:** Suplab &nbsp;|&nbsp; **Status:** All 12 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–12 of 12
+**Author:** Suplab &nbsp;|&nbsp; **Status:** All 14 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–14 of 14
 
 ---
 
@@ -57,14 +57,17 @@ Here, **Aether** is the invisible cognitive fabric that connects humans, memorie
 
 ## Aether Grid — Current Implementation
 
-Aether Grid is the distributed intelligence layer implemented in this repository (all 12 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
+Aether Grid is the distributed intelligence layer implemented in this repository (all 14 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
 
 - **Remembers** every API interaction semantically (all-MiniLM-L6-v2 embeddings + metadata in pgvector, 384-dim)
 - **Learns** patterns of successful and failing requests over time (PROCEDURAL/SEMANTIC/EPISODIC/EMOTIONAL memory types)
 - **Governs** API usage via YAML policies stored in PostgreSQL and evaluated at runtime with SpEL
 - **Predicts** temporal failure and latency windows with the `TemporalPredictionAgent`
 - **Debugs itself**: `HallucinationDetectorAgent` validates LLM outputs, `ReflectionAgent` evaluates system health
-- **Coordinates** five specialized agents across a cognitive mesh with shared pgvector memory
+- **Improves itself**: `SelfImprovingAgent` reads `AgentFeedback` history and generates LLM-powered improvement suggestions; `AgentLearningService` reviews all tenants weekly on a schedule
+- **Tracks performance**: `AgentController` exposes feedback recording (`POST /api/v1/tenants/{tenantId}/agents/feedback`) and per-agent performance stats (`GET /api/v1/tenants/{tenantId}/agents/performance`)
+- **Coordinates** six specialized agents across a cognitive mesh with shared pgvector memory
+- **Provides visibility**: live dark-theme operator dashboard at `http://localhost:8081/dashboard.html` — stat cards, agent registry, memory breakdown, decision history, SSE live stream
 - **Protects PII** via `GdprRedactionService` (email, phone, cards, SSN, JWT, API keys) before any persistence
 - **Enforces confidence gates**: agents with confidence < 0.8 on BLOCK decisions require human-in-the-loop
 
@@ -158,6 +161,7 @@ aether/
 │       ├── hallucination/         # HallucinationDetectorAgent (memory pattern validation)
 │       ├── temporal/              # TemporalPredictionAgent (EPISODIC/SEMANTIC counts, ALERT/DEFER)
 │       ├── reflection/            # ReflectionAgent (procedural health score, SUGGEST/DEFER)
+│       ├── selfimproving/         # SelfImprovingAgent (feedback history → LLM suggestions, SUGGEST)
 │       └── llm/                   # LlmClient interface + OllamaLlmClient + GroqLlmClient + AnthropicLlmClient
 │
 ├── aether-policy/                 # Policy engine
@@ -170,9 +174,12 @@ aether/
 ├── aether-api/                    # Admin REST API — Control Plane (port 8081)
 │   └── src/main/java/com/suplab/aether/api/
 │       ├── controller/            # TenantController, PolicyController, MemoryController
+│       │                          # AuditController, AgentController, DashboardController
 │       │                          # GlobalExceptionHandler (RFC 7807 ProblemDetail)
-│       ├── config/                # ApiConfig (JdbcApiTenantRepository adapter)
-│       └── security/              # SecurityConfig (stateless JWT OAuth2, actuator/Swagger open)
+│       ├── service/               # AgentLearningService (@Scheduled weekly), DashboardStatsService
+│       ├── config/                # ApiConfig, LearningConfig
+│       ├── security/              # SecurityConfig (JWT OAuth2; /dashboard/** and /*.html open)
+│       └── resources/static/      # dashboard.html — self-contained operator SPA
 │
 ├── aether-infra/                  # Infrastructure-as-Code (no Java source)
 │   ├── docker/
@@ -180,7 +187,7 @@ aether/
 │   │   │                          # Zookeeper, Ollama, Prometheus, Grafana)
 │   │   ├── docker-compose.test.yml # CI-only (lighter, no Ollama)
 │   │   └── .env.example           # All env variable names (no values committed)
-│   ├── db/migration/              # Flyway SQL migrations V001–V009+
+│   ├── db/migration/              # Flyway SQL migrations V001–V012
 │   │   ├── V001__create_tenants.sql
 │   │   ├── V002__create_endpoints.sql
 │   │   ├── V003__create_api_calls.sql
@@ -189,7 +196,10 @@ aether/
 │   │   ├── V006__create_policy_versions.sql
 │   │   ├── V007__create_agent_decisions.sql
 │   │   ├── V008__create_audit_log.sql
-│   │   └── V009__create_outbox_events.sql
+│   │   ├── V009__create_outbox_events.sql
+│   │   ├── V010__tenant_gdpr_preferences.sql    # memory_opt_out, data_retention_days
+│   │   ├── V011__row_level_security.sql         # PG RLS on all tenant-scoped tables
+│   │   └── V012__agent_feedback.sql             # agent_feedback table, RLS, index
 │   ├── k8s/                       # Kubernetes manifests
 │   │   ├── namespace.yaml         # aether-grid namespace
 │   │   ├── secrets-template.yaml  # Required Secret keys (no values committed)
@@ -256,8 +266,9 @@ aether/
 | **HallucinationDetectorAgent** | `HALLUCINATION_DETECTION` | Phase 7 | Validates LLM outputs against stored memory patterns; defaults ALERT when LLM unavailable |
 | **TemporalPredictionAgent** | `TEMPORAL_PREDICTION` | Phase 10 | Analyses EPISODIC/SEMANTIC memory counts; LLM ALERT/DEFER predictions; fast-path DEFER for zero memories |
 | **ReflectionAgent** | `REFLECTION` | Phase 10 | Procedural health score = `proceduralCount / (total + 1)`; fast-path ALLOW when healthy; LLM SUGGEST when poor |
+| **SelfImprovingAgent** | `SELF_IMPROVEMENT` | Phase 13 | Meta-agent; reads `AgentFeedback` history; builds LLM prompt with outcome statistics; returns improvement suggestions as SUGGEST decisions |
 
-All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry` (Spring `List<Agent>` injection). Zero configuration to add a new agent. The `AgentOrchestrator` records `aether.agent.executions` and `aether.agent.latency` Micrometer metrics per execution.
+All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry` (Spring `List<Agent>` injection, `registeredTypes()` for dashboard enumeration). Zero configuration to add a new agent. The `AgentOrchestrator` records `aether.agent.executions` and `aether.agent.latency` Micrometer metrics per execution.
 
 ---
 
@@ -321,6 +332,9 @@ mvn verify
 # Admin API — Swagger UI (control plane, port 8081)
 open http://localhost:8081/api/swagger-ui.html
 
+# Operator dashboard (no auth required)
+open http://localhost:8081/dashboard.html
+
 # Onboard a tenant
 curl -s -X POST http://localhost:8081/api/v1/tenants \
   -H "Authorization: Bearer <jwt>" \
@@ -378,7 +392,7 @@ export ANTHROPIC_API_KEY=<key>
 |---|---|
 | [Concept & Vision](docs/index.html) | Visual overview of the full Aether ecosystem |
 | [Architecture](docs/architecture.md) | Technical deep-dive: modules, patterns, data model, security |
-| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–12) |
+| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–14) |
 | [Progress](docs/progress.md) | Live development progress tracker |
 | [ADRs](docs/adr/) | Architecture Decision Records |
 
