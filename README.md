@@ -2,7 +2,7 @@
 
 > A human-centric cognitive computing framework — philosophy, personal intelligence, and distributed autonomous agents.
 
-**Author:** Suplab &nbsp;|&nbsp; **Status:** Active Development &nbsp;|&nbsp; **Version:** Conceptual Blueprint v1.0
+**Author:** Suplab &nbsp;|&nbsp; **Status:** Active Development &nbsp;|&nbsp; **Phases Complete:** 0–10 of 12
 
 ---
 
@@ -57,14 +57,16 @@ Here, **Aether** is the invisible cognitive fabric that connects humans, memorie
 
 ## Aether Grid — Current Implementation
 
-Aether Grid is the distributed intelligence layer currently under active development in this repository. It sits as a **smart proxy and governance layer** in front of any API ecosystem:
+Aether Grid is the distributed intelligence layer implemented in this repository (Phases 0–10 complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
 
-- **Remembers** every API interaction semantically (embeddings + metadata in PGVector)
-- **Learns** patterns of successful and failing requests over time
-- **Governs** API usage by generating and enforcing policies-as-code
-- **Predicts** temporal failure and latency windows with pre-emptive scheduling
-- **Debugs itself**: detects hallucination, policy drift, ineffective retries, and loops
-- **Coordinates** specialized agents across a cognitive mesh with shared memory
+- **Remembers** every API interaction semantically (all-MiniLM-L6-v2 embeddings + metadata in pgvector, 384-dim)
+- **Learns** patterns of successful and failing requests over time (PROCEDURAL/SEMANTIC/EPISODIC/EMOTIONAL memory types)
+- **Governs** API usage via YAML policies stored in PostgreSQL and evaluated at runtime with SpEL
+- **Predicts** temporal failure and latency windows with the `TemporalPredictionAgent`
+- **Debugs itself**: `HallucinationDetectorAgent` validates LLM outputs, `ReflectionAgent` evaluates system health
+- **Coordinates** five specialized agents across a cognitive mesh with shared pgvector memory
+- **Protects PII** via `GdprRedactionService` (email, phone, cards, SSN, JWT, API keys) before any persistence
+- **Enforces confidence gates**: agents with confidence < 0.8 on BLOCK decisions require human-in-the-loop
 
 ---
 
@@ -94,8 +96,8 @@ Agents with confidence < 0.8 never auto-block — human-in-the-loop is a hard co
 ```
 aether/
 ├── .claude/
-│   ├── agents/                    # 44 specialist agents (eeik-bootstrap)
-│   ├── commands/                  # 19 slash commands
+│   ├── agents/                    # 19 specialist agents (eeik-bootstrap)
+│   ├── commands/                  # 5 slash commands (/estimate, /review, /adr, /memory-update, /security-scan)
 │   ├── hooks/                     # Pre-write, pre-bash, post-edit, on-stop hooks
 │   └── memory/
 │       ├── project-context.md     # Service inventory, ports, environments
@@ -132,45 +134,44 @@ aether/
 │
 ├── aether-proxy/                  # Spring Cloud Gateway — Data Plane (port 8080)
 │   └── src/main/java/com/suplab/aether/proxy/
-│       ├── filter/                # ProxyFilter, TenantResolutionFilter, RateLimitFilter
-│       ├── circuitbreaker/        # Resilience4j configuration
-│       ├── routing/               # DynamicRouteLocator (tenant-aware routes from DB)
-│       └── capture/               # CallCaptureService, transactional outbox writer
+│       ├── filter/                # TenantAuthFilter (order=-100), RedactionFilter (order=-90),
+│       │                          # ApiCallCaptureFilter (order=-50)
+│       ├── outbox/                # JdbcOutboxRepository, OutboxRelayScheduler (5s interval)
+│       ├── ratelimit/             # TenantKeyResolver (Redis per-tenant key)
+│       └── tenant/                # JdbcTenantRepository
 │
 ├── aether-memory/                 # Embedding service + vector storage
 │   └── src/main/java/com/suplab/aether/memory/
-│       ├── embedding/             # EmbeddingService interface + OllamaEmbeddingService
-│       ├── store/                 # PgVectorMemoryStore, ChromaMemoryStore (adapter)
-│       └── compaction/            # MemoryCompactionJob (monthly scheduled summarizer)
+│       ├── embedding/             # OllamaEmbeddingService (all-MiniLM-L6-v2, 384-dim)
+│       ├── store/                 # PGVectorMemoryStore (<=> cosine operator, strength reinforcement)
+│       ├── lifecycle/             # MemoryLifecycleService (daily decay, weekly purge)
+│       └── consumer/              # ApiCallMemoryConsumer (Kafka listener, memory type classifier)
 │
 ├── aether-agents/                 # Agent subsystem
 │   └── src/main/java/com/suplab/aether/agents/
-│       ├── spi/                   # Agent interface, AgentCapability, AgentInput/Output
-│       ├── registry/              # AgentRegistry (Spring List<Agent> injection)
-│       ├── orchestrator/          # AgentOrchestrator, OrchestrationPlan
-│       ├── governance/            # GovernanceAgent
-│       ├── retry/                 # RetryAgent
-│       ├── hallucination/         # HallucinationDetectorAgent
-│       ├── drift/                 # PolicyDriftAgent
-│       ├── temporal/              # TemporalPredictionAgent
-│       ├── reflection/            # ReflectionAgent
-│       └── llm/                   # LlmClient interface + OllamaLlmClient adapter
+│       ├── spi/                   # Agent interface, AgentCapability, AgentInput/Output, AgentDecision
+│       ├── registry/              # AgentRegistry (Spring List<Agent> injection, disableAgent kill-switch)
+│       ├── orchestrator/          # AgentOrchestrator (VirtualThreads, MAX_ITERATIONS=5, Micrometer metrics)
+│       ├── governance/            # GovernanceAgent (LLM JSON protocol, confidence gate)
+│       ├── retry/                 # RetryAgent (failure memory counts, exponential backoff)
+│       ├── hallucination/         # HallucinationDetectorAgent (memory pattern validation)
+│       ├── temporal/              # TemporalPredictionAgent (EPISODIC/SEMANTIC counts, ALERT/DEFER)
+│       ├── reflection/            # ReflectionAgent (procedural health score, SUGGEST/DEFER)
+│       └── llm/                   # LlmClient interface + OllamaLlmClient + GroqLlmClient + AnthropicLlmClient
 │
 ├── aether-policy/                 # Policy engine
 │   └── src/main/java/com/suplab/aether/policy/
-│       ├── model/                 # Policy aggregate, PolicyRule, PolicyVersion
-│       ├── engine/                # PolicyEngine, SpelRuleEvaluator
-│       ├── storage/               # JdbcPolicyStore (versioned YAML in PostgreSQL)
-│       └── audit/                 # AuditLog, GdprRedactionService
+│       ├── model/                 # PolicyRule, PolicyEvaluationContext, PolicyEvaluationResult
+│       ├── engine/                # SpelPolicyEngine (SimpleEvaluationContext, read-only sandbox)
+│       ├── storage/               # JdbcPolicyRepository (single-active invariant, auto-versioning)
+│       └── audit/                 # AuditLogService (JSONB, no FK), GdprRedactionService (regex PII)
 │
 ├── aether-api/                    # Admin REST API — Control Plane (port 8081)
 │   └── src/main/java/com/suplab/aether/api/
-│       ├── tenant/                # TenantController, TenantService
-│       ├── policy/                # PolicyController (CRUD + versioning)
-│       ├── memory/                # MemoryController (semantic search)
-│       ├── metrics/               # MetricsController (aggregated call stats)
-│       ├── observability/         # OpenTelemetry + Micrometer config
-│       └── security/              # Spring Security 6, JWT + API-key dual auth
+│       ├── controller/            # TenantController, PolicyController, MemoryController
+│       │                          # GlobalExceptionHandler (RFC 7807 ProblemDetail)
+│       ├── config/                # ApiConfig (JdbcApiTenantRepository adapter)
+│       └── security/              # SecurityConfig (stateless JWT OAuth2, actuator/Swagger open)
 │
 ├── aether-infra/                  # Infrastructure-as-Code (no Java source)
 │   ├── docker/
@@ -247,16 +248,15 @@ aether/
 
 ## Agent Mesh
 
-| Agent | Capability | Role |
-|---|---|---|
-| **GovernanceAgent** | `GOVERNANCE` | Enforces API policies using LLM + memory. Confidence < 0.8 = human-in-the-loop. |
-| **RetryAgent** | `RETRY_OPTIMIZATION` | Learns optimal retry strategies from historical failure patterns. |
-| **HallucinationDetectorAgent** | `HALLUCINATION_DETECTION` | Detects when agent outputs contradict stored facts via cosine similarity. |
-| **PolicyDriftAgent** | `POLICY_DRIFT` | Monitors live behavior against policy baseline over a rolling 24h window. |
-| **TemporalPredictionAgent** | `TEMPORAL_PREDICTION` | Predicts failure/latency windows from time-series memory; feeds RetryAgent. |
-| **ReflectionAgent** | `REFLECTION` | Periodic system health evaluation; identifies loops, stale policies, drift. |
+| Agent | Capability | Built | Role |
+|---|---|---|---|
+| **GovernanceAgent** | `GOVERNANCE` | Phase 7 | LLM JSON response protocol; ALLOW/BLOCK/ALERT decisions; confidence < 0.8 = human-in-the-loop |
+| **RetryAgent** | `RETRY_OPTIMIZATION` | Phase 7 | Counts failure/timeout memories; suggests exponential backoff; fast-path for zero-failure calls |
+| **HallucinationDetectorAgent** | `HALLUCINATION_DETECTION` | Phase 7 | Validates LLM outputs against stored memory patterns; defaults ALERT when LLM unavailable |
+| **TemporalPredictionAgent** | `TEMPORAL_PREDICTION` | Phase 10 | Analyses EPISODIC/SEMANTIC memory counts; LLM ALERT/DEFER predictions; fast-path DEFER for zero memories |
+| **ReflectionAgent** | `REFLECTION` | Phase 10 | Procedural health score = `proceduralCount / (total + 1)`; fast-path ALLOW when healthy; LLM SUGGEST when poor |
 
-All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry` (Spring `List<Agent>` injection). Zero configuration to add a new agent.
+All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry` (Spring `List<Agent>` injection). Zero configuration to add a new agent. The `AgentOrchestrator` records `aether.agent.executions` and `aether.agent.latency` Micrometer metrics per execution.
 
 ---
 
@@ -271,8 +271,8 @@ All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry`
 | Database | PostgreSQL 16 + pgvector extension |
 | Cache / Rate Limiting | Redis 7 |
 | Vector Store | pgvector (default), Chroma (adapter) |
-| LLM Runtime | Ollama — Gemma2:2b / Phi-3-mini (local-first) |
-| Embedding Model | all-MiniLM-L6-v2 via Ollama (384-dim) |
+| LLM Runtime | Ollama (default, local) · Groq cloud · Anthropic Claude — swappable via `AETHER_LLM_PROVIDER` env var |
+| Embedding Model | all-MiniLM-L6-v2 via Ollama (384-dim, fixed — changing requires full re-embedding migration) |
 | Resilience | Resilience4j (circuit breaker, retry, bulkhead) |
 | Policy Rules | Spring EL (SpEL) evaluated against YAML policies in PostgreSQL |
 | Observability | OpenTelemetry + Micrometer + Prometheus + Grafana |
@@ -311,18 +311,42 @@ All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry`
 
 ```bash
 # Start the full local infrastructure stack
+# (PostgreSQL+pgvector, Redis, Kafka, Ollama, Prometheus, Grafana)
 docker compose -f aether-infra/docker/docker-compose.yml up -d
 
-# Build all modules
+# Build all modules (requires Java 21, Maven 3.9+)
 mvn verify
 
-# Admin API (control plane)
+# Admin API — Swagger UI (control plane, port 8081)
 open http://localhost:8081/api/swagger-ui.html
 
-# Proxy an API call
-curl -H "X-Tenant-ID: my-tenant" \
-     -H "X-API-Key: <key>" \
-     http://localhost:8080/proxy/my-api/endpoint
+# Onboard a tenant
+curl -s -X POST http://localhost:8081/api/v1/tenants \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-tenant","apiKey":"<raw-key>"}'
+
+# Proxy an API call (data plane, port 8080)
+curl -H "X-API-Key: <raw-key>" \
+     http://localhost:8080/<configured-path>
+
+# Grafana dashboards
+open http://localhost:3000
+```
+
+**LLM provider selection** (set before starting `aether-proxy` or `aether-api`):
+
+```bash
+# Default: local Ollama
+export AETHER_LLM_PROVIDER=ollama
+
+# Groq cloud (fast remote inference)
+export AETHER_LLM_PROVIDER=groq
+export GROQ_API_KEY=<key>
+
+# Anthropic Claude
+export AETHER_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=<key>
 ```
 
 ---
@@ -359,6 +383,6 @@ Branch from `main`, open a PR. CI must be green. No `// TODO` in committed code.
     Scaffolded and governed by
     <a href="https://github.com/suplab/eeik-bootstrap"><strong>eeik-bootstrap</strong></a>
     — the AI-native enterprise engineering operating system.<br/>
-    44 specialist agents · 19 slash commands · persistent memory · governance from day one.
+    19 specialist agents · 5 slash commands · persistent memory · governance from day one.
   </sub>
 </p>

@@ -1,6 +1,6 @@
 # Aether — Technical Architecture
 
-> Living document. Updated with each phase completion. Last updated: Phase 0.
+> Living document. Updated with each phase completion. Last updated: Phase 10.
 
 ---
 
@@ -13,49 +13,53 @@ AetherGrid is implemented as a **Maven multi-module, modular-monolith** — two 
 - `aether-api` — Control Plane (port 8081): Admin REST API for governance and configuration
 
 **Five library modules** (JAR, no `main` class):
-- `aether-core` — shared domain model, events, port interfaces
+- `aether-core` — shared domain model, events, port interfaces (pure Java, no Spring dependency)
 - `aether-memory` — embedding and vector storage
-- `aether-agents` — agent SPI, registry, orchestrator, all agent implementations
-- `aether-policy` — policy engine, rule evaluation, GDPR redaction
-- `aether-infra` — Docker, Flyway migrations, K8s manifests (no Java)
+- `aether-agents` — agent SPI, registry, orchestrator, all agent implementations, multi-provider LLM abstraction
+- `aether-policy` — policy engine, rule evaluation, GDPR redaction, audit log
+- `aether-infra` — Docker Compose, Flyway migrations, K8s manifests (no Java)
 
 ---
 
 ## Module Dependency Graph
 
 ```
-aether-proxy  ────────────────────────────────────┐
-      │                                            │
-      ▼                                            ▼
+aether-proxy  ──────────────────────────────────────────────┐
+      │                                                      │
+      ▼                                                      ▼
 aether-core ◄── aether-memory ◄── aether-agents ──► aether-policy
-                                                       │
-                                                  aether-api
+                                                           │
+                                                      aether-api
 ```
 
-`aether-core` has **no dependencies** on other modules. All other modules depend on it. `aether-proxy` and `aether-api` depend on the full stack.
+`aether-core` has **no dependencies** on other modules or on Spring. All other modules depend on it. `aether-proxy` and `aether-api` depend on the full stack.
 
 ---
 
 ## Core Design Patterns
 
 ### Hexagonal Architecture (Ports & Adapters)
+
 All outbound I/O (database, Kafka, Ollama, Redis) is behind interfaces defined in `aether-core`:
 
 ```java
 // aether-core: port (interface only, no implementation)
 public interface MemoryStore {
     void store(MemoryRecord record);
-    List<MemoryRecord> findSimilar(EmbeddingVector query, int topK);
+    List<MemoryRecord> findSimilar(float[] queryVector, int topK, TenantId tenantId);
+    List<MemoryRecord> findByType(MemoryType type, TenantId tenantId);
+    void delete(UUID memoryId, TenantId tenantId);
 }
 
 // aether-memory: adapter (implements the port)
 @Component
-public class PgVectorMemoryStore implements MemoryStore { ... }
+public class PGVectorMemoryStore implements MemoryStore { ... }
 ```
 
-Tests use in-memory stubs. The proxy has no knowledge of whether storage is PGVector or Chroma.
+Tests use in-memory stubs. The proxy has no knowledge of whether storage is pgvector or Chroma.
 
 ### Domain Events (Sealed Hierarchy)
+
 All cross-module communication goes through sealed domain events on the Kafka bus:
 
 ```java
@@ -67,6 +71,7 @@ public sealed interface DomainEvent
 Java 21 pattern matching enables exhaustive handling — the compiler enforces that all event types are handled.
 
 ### Agent Plugin Pattern (SPI)
+
 Agents are registered via Spring's constructor-injected `List<Agent>`:
 
 ```java
@@ -89,6 +94,7 @@ public class AgentRegistry {
 Adding a new agent = implement `Agent` + `@Component`. Zero configuration.
 
 ### Transactional Outbox (Reliable Event Publishing)
+
 Direct `KafkaTemplate.send()` inside a transaction creates dual-write risk. AetherGrid uses the outbox pattern:
 
 ```
@@ -97,16 +103,17 @@ DB Transaction:
   INSERT INTO outbox_events (event_type, payload, published=false)
   COMMIT
 
-Relay thread (separate process):
-  SELECT * FROM outbox_events WHERE published=false
-  KafkaTemplate.send(...)
-  UPDATE outbox_events SET published=true
+OutboxRelayScheduler (@Scheduled every 5s):
+  SELECT id, event_type, payload FROM outbox_events WHERE published = false LIMIT 100
+  KafkaTemplate.send(...).get()
+  UPDATE outbox_events SET published=true WHERE id = ANY(:ids::uuid[])
 ```
 
 Ensures events are never lost even if Kafka is temporarily unavailable.
 
 ### Policy-as-Code (SpEL in YAML)
-Governance rules are stored as YAML in PostgreSQL. Rules use Spring EL expressions evaluated at runtime:
+
+Governance rules are stored as YAML in PostgreSQL. Rules use Spring EL expressions evaluated at runtime via `SimpleEvaluationContext` (read-only — no arbitrary Java execution):
 
 ```yaml
 # Example policy stored in policies table
@@ -114,16 +121,86 @@ id: tenant-a-latency-policy
 version: 3
 rules:
   - name: high-latency-alert
-    condition: "#call.metrics.latencyMs > 2000 && #call.outcome == 'FAILURE'"
+    condition: "#call.latencyMs > 2000 && #call.outcome == 'FAILURE'"
     action: ALERT
-    severity: HIGH
+    priority: 100
   - name: block-excessive-errors
-    condition: "#call.metrics.errorRate > 0.3"
+    condition: "#call.responseCode >= 500"
     action: BLOCK
-    severity: CRITICAL
+    priority: 200
 ```
 
 No redeployment needed to change governance rules.
+
+### Multi-Provider LLM Abstraction
+
+All agent LLM calls go through the `LlmClient` interface. The active provider is selected at startup via `@ConditionalOnProperty(name = "aether.llm.provider")`:
+
+```java
+public interface LlmClient {
+    LlmResponse complete(LlmRequest request);
+    LlmProvider provider();
+    boolean isAvailable();
+}
+```
+
+Three production adapters are implemented:
+
+| Provider | Adapter | Models |
+|---|---|---|
+| Ollama (default) | `OllamaLlmClient` | Gemma2:2b, Phi-3-mini, any local model |
+| Groq cloud | `GroqLlmClient` | Llama-3.3-70b, Mixtral-8x7b, Gemma2-9b |
+| Anthropic | `AnthropicLlmClient` | claude-haiku-4-5, claude-sonnet-4-6 |
+
+Swapping providers requires only an env var change (`AETHER_LLM_PROVIDER`). No code changes.
+
+---
+
+## Proxy Filter Chain
+
+Inbound requests traverse the following ordered filter chain in `aether-proxy`:
+
+```
+Inbound Request
+       │
+       ▼
+TenantAuthFilter (order = -100)
+  X-API-Key header → SHA-256 hash → lookup in tenants table
+  401 for unknown key or SUSPENDED tenant
+  Actuator paths (/actuator/**) bypass auth entirely
+  Stores TenantContext in exchange attributes
+       │
+       ▼
+RedactionFilter (order = -90)
+  Strips from downstream request: Authorization, X-API-Key,
+  Cookie, Set-Cookie, X-Client-Secret
+  Prevents credential leakage to proxied APIs
+       │
+       ▼
+RequestRateLimiter (Spring Cloud Gateway built-in)
+  Redis token bucket: 100 rps / 200 burst per tenant
+  Key resolved by TenantKeyResolver (falls back to IP)
+       │
+       ▼
+Spring Cloud Gateway Route
+  Resolves target URL from endpoints table
+  CircuitBreaker (Resilience4j): 50% failure threshold, 30s open
+       │
+       ▼
+Downstream API
+       │
+       ▼
+ApiCallCaptureFilter (order = -50, doFinally hook)
+  Captures response status + latency after chain completes
+  Serialises ApiCallRecordedEvent as JSON into outbox_events
+  Fire-and-forget via Schedulers.boundedElastic()
+       │
+       ▼
+OutboxRelayScheduler (@Scheduled every 5s)
+  Reads up to 100 unpublished events
+  Publishes to Kafka topic: aether.api.calls
+  Bulk-marks published via ANY(:ids::uuid[])
+```
 
 ---
 
@@ -135,9 +212,17 @@ No redeployment needed to change governance rules.
 tenants
   id UUID PK
   name VARCHAR
-  api_key_hash VARCHAR
-  status VARCHAR
+  api_key_hash VARCHAR       -- SHA-256 of the raw key; raw key never stored
+  status VARCHAR             -- ACTIVE | SUSPENDED | DEPROVISIONED
   created_at TIMESTAMP
+
+endpoints
+  id UUID PK
+  tenant_id UUID FK → tenants.id
+  name VARCHAR
+  base_url VARCHAR
+  path_pattern VARCHAR
+  active BOOLEAN
 
 api_calls
   id UUID PK
@@ -147,23 +232,23 @@ api_calls
   request_hash VARCHAR
   response_code INT
   latency_ms BIGINT
-  outcome VARCHAR  -- SUCCESS | FAILURE | TIMEOUT
+  outcome VARCHAR            -- SUCCESS | FAILURE | TIMEOUT
   captured_at TIMESTAMP
 
 memory_embeddings
   id UUID PK
   tenant_id UUID FK
-  memory_type VARCHAR  -- EPISODIC | SEMANTIC | PROCEDURAL | EMOTIONAL
+  memory_type VARCHAR        -- EPISODIC | SEMANTIC | PROCEDURAL | EMOTIONAL
   content TEXT
-  embedding vector(384)  -- pgvector column, all-MiniLM-L6-v2 output
-  strength FLOAT         -- 0.0–1.0, reinforced on retrieval
+  embedding vector(384)      -- pgvector column, all-MiniLM-L6-v2 output
+  strength FLOAT             -- 0.0–1.0, reinforced +5% on retrieval, decays daily
   last_accessed TIMESTAMP
   created_at TIMESTAMP
 
 policies
   id UUID PK
   tenant_id UUID FK
-  status VARCHAR  -- DRAFT | ACTIVE | SUPERSEDED
+  status VARCHAR             -- DRAFT | ACTIVE | SUPERSEDED
   yaml_content TEXT
   created_at TIMESTAMP
   activated_at TIMESTAMP
@@ -171,7 +256,7 @@ policies
 policy_versions
   id UUID PK
   policy_id UUID FK → policies.id
-  version INT
+  version INT                -- auto-incremented: MAX(version) + 1
   yaml_content TEXT
   changed_by VARCHAR
   changed_at TIMESTAMP
@@ -181,20 +266,22 @@ agent_decisions
   call_id UUID FK → api_calls.id
   agent_type VARCHAR
   capability VARCHAR
-  decision VARCHAR
+  decision VARCHAR           -- ALLOW | BLOCK | ALERT | SUGGEST | DEFER
   confidence FLOAT
+  auto_enforced BOOLEAN      -- false when confidence < 0.8
   rationale TEXT
   decided_at TIMESTAMP
 
 audit_log
   id UUID PK
-  tenant_id UUID FK
+  tenant_id UUID
   entity_type VARCHAR
   entity_id UUID
   action VARCHAR
   actor VARCHAR
   detail JSONB
   occurred_at TIMESTAMP
+  -- No FK constraints: audit records survive entity deletion
 
 outbox_events
   id UUID PK
@@ -203,17 +290,11 @@ outbox_events
   published BOOLEAN DEFAULT false
   created_at TIMESTAMP
   published_at TIMESTAMP
-
-endpoints
-  id UUID PK
-  tenant_id UUID FK
-  name VARCHAR
-  base_url VARCHAR
-  path_pattern VARCHAR
-  active BOOLEAN
+  -- Partial index on (published = false) for efficient relay queries
 ```
 
 ### Vector Index
+
 ```sql
 -- Cosine similarity index on memory_embeddings.embedding
 CREATE INDEX ON memory_embeddings USING ivfflat (embedding vector_cosine_ops)
@@ -222,95 +303,55 @@ WITH (lists = 100);
 
 ---
 
-## API Proxy Flow
-
-```
-Inbound Request
-       │
-       ▼
-TenantResolutionFilter
-  Extract X-Tenant-ID header
-  Validate API key against tenants table
-  Store TenantContext in reactive context
-       │
-       ▼
-PolicyEnforcementFilter (pre-routing)
-  Load active policy for tenant
-  Evaluate request against policy rules (SpEL)
-  If BLOCK rule triggered AND confidence ≥ 0.8: reject (403)
-  Otherwise: proceed
-       │
-       ▼
-RateLimitFilter
-  Redis sliding window token bucket: (tenantId, endpointId)
-  Limits from active policy rate_limit.requests_per_minute
-       │
-       ▼
-Spring Cloud Gateway Route
-  DynamicRouteLocator resolves target URL from endpoints table
-       │
-       ▼
-Downstream API
-       │
-       ▼
-CallCaptureService
-  Record request + response bodies, latency, status
-  Build ApiCall aggregate
-  Write to api_calls + outbox_events in one transaction
-       │
-       ▼
-Outbox Relay → Kafka: aether.api.calls
-       │
-       ├──► MemoryService (aether-memory module)
-       │    Embed call context → store in memory_embeddings
-       │
-       └──► AgentOrchestrator (aether-agents module)
-            Route to GovernanceAgent, RetryAgent, etc.
-```
-
----
-
 ## Memory Lifecycle
 
 ```
-ApiCallRecordedEvent arrives via Kafka
+ApiCallRecordedEvent arrives via Kafka (topic: aether.api.calls)
        │
        ▼
-MemoryService.store(call)
-  Build text representation of the call
+ApiCallMemoryConsumer (@KafkaListener)
+  Parses JSON payload
+  Classifies memory type:
+    HTTP 2xx  → PROCEDURAL (successful process)
+    HTTP 4xx  → SEMANTIC   (API contract facts)
+    HTTP 5xx / timeout → EPISODIC (failure experience)
        │
        ▼
-EmbeddingService.embed(text)
-  POST /api/embeddings → Ollama (all-MiniLM-L6-v2)
+OllamaEmbeddingService.embed(content)
+  POST /api/embed → Ollama (all-MiniLM-L6-v2)
   Returns float[384]
+  Validates dimension — throws EmbeddingException on mismatch
+  Embedding failures skip gracefully (no exception propagation)
        │
        ▼
-PgVectorMemoryStore.store(record)
-  INSERT INTO memory_embeddings (content, embedding, memory_type, ...)
+PGVectorMemoryStore.store(record)
+  float[] → "[x,y,z,...]" string → ::vector cast
+  INSERT INTO memory_embeddings ... ON CONFLICT DO UPDATE
        │
-Later: Agent lookup
-       │
-       ▼
-MemoryService.findSimilarCalls(context, topK=10)
-  EmbeddingService.embed(context) → query vector
+Later: Agent semantic lookup
        │
        ▼
-PgVectorMemoryStore.findSimilar(queryVector, topK)
-  SELECT ... FROM memory_embeddings
-  ORDER BY embedding <-> :queryVector  -- cosine distance
+PGVectorMemoryStore.findSimilar(queryVector, topK, tenantId)
+  SELECT id, content, memory_type, strength, ...
+  FROM memory_embeddings
+  WHERE tenant_id = :tenantId
+  ORDER BY embedding <=> :queryVector::vector
   LIMIT :topK
+  Reinforces strength by +5% on each retrieval
        │
        ▼
 Returns List<MemoryRecord> to calling agent
-  Agent builds prompt: context + top-K memories + active policy
+  Agent builds LLM prompt: context + top-K memories + active policy
 ```
 
-### Memory Compaction (Monthly)
-The `MemoryCompactionJob` runs on the 1st of each month at 02:00 UTC:
-1. Fetch all `MemoryRecord`s older than 30 days where `strength < 0.3`
-2. Summarize in batches via the LLM: "Summarize these N API interaction memories into key patterns"
-3. Store one `SEMANTIC` summary record
-4. Delete the originals in a transaction
+### Memory Strength Lifecycle
+
+```
+On store:     strength = 1.0 (initial)
+On retrieval: strength = MIN(strength * 1.05, 1.0)
+Daily decay:  strength = strength * 0.95  (records idle > 7 days)
+Weekly purge: DELETE WHERE strength < 0.05
+```
 
 ---
 
@@ -321,21 +362,39 @@ AgentInput created (ApiCall + relevant memories + active policy)
        │
        ▼
 AgentOrchestrator.orchestrate(input)
-  Build OrchestrationPlan: which AgentCapabilities are needed
-  (based on call outcome, policy status, confidence thresholds)
+  Dispatches to all agents matching the required AgentCapability
+  MAX_ITERATIONS = 5 guard (prevents infinite loops)
        │
        ▼
-For each capability in plan:
-  AgentRegistry.findByCapability(capability) → List<Agent>
-  Agent.process(input) → AgentOutput
-  If AgentOutput.confidence < 0.8: DO NOT auto-block (human-in-the-loop)
+For each agent (parallel via VirtualThreadPerTaskExecutor):
+  agent.process(input) → AgentOutput
+  Micrometer: aether.agent.executions counter (agent, decision tags)
+  Micrometer: aether.agent.latency timer (agent tag)
+
+  Confidence gate (enforced in AgentOutput compact constructor):
+    If decision == BLOCK and confidence < 0.8:
+      autoEnforced = false  → human-in-the-loop required
+      Decision is recorded but NOT automatically enforced
+
   Persist AgentDecision to agent_decisions table
   Publish AgentDecisionEvent to Kafka
        │
        ▼
 OrchestrationResult returned
-  Contains all AgentOutputs, aggregated confidence, recommended action
+  requiresHumanReview():  any BLOCK with autoEnforced=false
+  hasAutoBlock():         any BLOCK with autoEnforced=true
+  highestSeverityDecision(): BLOCK > ALERT > SUGGEST > DEFER > ALLOW
 ```
+
+### Agent Inventory
+
+| Agent | Capability | Phase | Behaviour |
+|---|---|---|---|
+| `GovernanceAgent` | `GOVERNANCE` | 7 | LLM JSON response protocol; ALLOW/BLOCK/ALERT; defaults ALLOW on parse error |
+| `RetryAgent` | `RETRY_OPTIMIZATION` | 7 | Counts failure memories; fast-path for zero failures; suggests exponential backoff |
+| `HallucinationDetectorAgent` | `HALLUCINATION_DETECTION` | 7 | Validates LLM outputs against memory patterns; defaults ALERT when LLM unavailable |
+| `TemporalPredictionAgent` | `TEMPORAL_PREDICTION` | 10 | Analyses EPISODIC/SEMANTIC memory counts; fast-path DEFER for zero memories; LLM ALERT/DEFER |
+| `ReflectionAgent` | `REFLECTION` | 10 | Health score = `proceduralCount / (total + 1)`; fast-path ALLOW when ≥ 0.5; LLM SUGGEST/DEFER |
 
 ---
 
@@ -343,37 +402,47 @@ OrchestrationResult returned
 
 | Concern | Implementation |
 |---|---|
-| Authentication (services) | `X-API-Key` header — SHA-256 hash compared against `tenants.api_key_hash` |
-| Authentication (humans) | JWT via Spring Security 6 OAuth2 Resource Server |
-| Multi-tenant data isolation | All queries include `WHERE tenant_id = :tenantId`; PG row-level security on sensitive tables |
-| Secrets management | Environment variables (local); AWS Secrets Manager (production). Never committed to source. |
-| GDPR | `GdprRedactionService` strips PII (email, phone, card) before any persistence |
-| Audit | `audit_log` table — immutable, append-only |
+| Authentication (services) | `X-API-Key` header — SHA-256 hash compared against `tenants.api_key_hash`; raw key never stored |
+| Authentication (humans) | JWT via Spring Security 6 OAuth2 Resource Server (stateless) |
+| Multi-tenant data isolation | All queries include `WHERE tenant_id = :tenantId`; PG row-level security planned (Phase 11) |
+| Secrets management | Environment variables (local); never committed to source |
+| GDPR | `GdprRedactionService` strips email, E.164 phone, Visa/MC/Amex, SSN, JWT Bearer, API keys before any persistence |
+| Audit | `audit_log` table — immutable, append-only, JSONB detail, no FK constraints |
 | Transport | HTTPS enforced in production (K8s ingress TLS termination) |
-| LLM prompt injection | Input sanitization before building agent prompts; model outputs validated by HallucinationDetectorAgent |
+| Credential leak prevention | `RedactionFilter` strips Authorization/Cookie/X-API-Key from downstream requests |
+| LLM prompt injection | Input sanitization before building agent prompts; model outputs validated by `HallucinationDetectorAgent` |
+| SpEL sandboxing | `SimpleEvaluationContext` (read-only) — no arbitrary Java execution via policy expressions |
+| Open endpoints | Actuator (`/actuator/**`) and Swagger UI bypass authentication; all `/api/**` requires JWT |
 
 ---
 
 ## Observability
 
-### Metrics (Micrometer → Prometheus)
+### Implemented Metrics (Micrometer → Prometheus)
+
 ```
+# Agent subsystem (Phase 10)
+aether.agent.executions{agent, decision}   -- counter, incremented per agent execution
+aether.agent.latency{agent}                -- timer, per-agent processing latency in ms
+
+# Planned additional meters
 aether.proxy.calls.total{tenant, endpoint, outcome}
-aether.proxy.latency.ms{tenant, endpoint}          -- histogram
+aether.proxy.latency.ms{tenant, endpoint}  -- histogram
 aether.memory.embeddings.total{tenant, type}
 aether.memory.similarity.queries.total{tenant}
-aether.agents.decisions.total{agent, decision}
-aether.agents.confidence{agent}                    -- histogram
 aether.policy.evaluations.total{tenant, result}
 aether.policy.violations.total{tenant, rule}
 aether.circuit.breaker.state{tenant, endpoint}
 ```
 
 ### Distributed Tracing (OpenTelemetry → Grafana Tempo)
-Every inbound proxy request gets a trace. Spans cover:
-- `proxy.filter.tenant-resolution`
-- `proxy.filter.policy-enforcement`
+
+`aether-api` is wired with `micrometer-tracing-bridge-otel` and `opentelemetry-exporter-otlp`. Every inbound request gets a trace. Planned spans:
+
+- `proxy.filter.tenant-auth`
+- `proxy.filter.redaction`
 - `proxy.filter.rate-limit`
+- `proxy.filter.capture`
 - `memory.embed`
 - `memory.store`
 - `agent.orchestrate`
@@ -381,17 +450,34 @@ Every inbound proxy request gets a trace. Spans cover:
 
 Trace IDs propagated to downstream APIs via `traceparent` header (W3C Trace Context).
 
+### Infrastructure
+
+- Prometheus scrapes `host.docker.internal:8080/actuator/prometheus` and `:8081/actuator/prometheus`
+- Grafana runs at `http://localhost:3000`
+- Docker Compose includes `prom/prometheus:v2.55.0` and `grafana/grafana:11.3.0`
+
 ---
 
 ## EEIK Bootstrap Integration
 
 AetherGrid's development environment is governed by [eeik-bootstrap](https://github.com/suplab/eeik-bootstrap):
 
-- **44 Claude Code agents** in `.claude/agents/` (java-developer, architect, ai-engineer, ai-governance-officer, security-auditor, dba-advisor, kubernetes-engineer, ci-engineer, etc.)
-- **19 slash commands**: `/estimate`, `/review`, `/adr`, `/security-scan`, `/deploy-check`, `/coverage-report`, `/memory-update`, etc.
+- **19 Claude Code agents** in `.claude/agents/` (java-developer, architect, ai-engineer, ai-governance-officer, security-auditor, dba-advisor, kubernetes-engineer, ci-engineer, performance-engineer, technical-writer, etc.)
+- **5 slash commands**: `/estimate`, `/review`, `/adr`, `/memory-update`, `/security-scan`
 - **Persistent memory**: `.claude/memory/` with 7 files seeded with AetherGrid-specific context
 - **Safety hooks**: pre-write guard (blocks dangerous paths), pre-bash guard (blocks destructive git/SQL), post-edit check (warns on `@Autowired`, `javax.*`, `SELECT *`)
 - **10 golden rules** enforced at code review: constructor injection, no hardcoded secrets, SLF4J, explicit SQL columns, parameterized queries, `jakarta.*`, Conventional Commits, no TODOs, SOLID, DDD
+
+---
+
+## Build Requirements
+
+| Requirement | Value |
+|---|---|
+| Java | 21 (enforced by Maven Enforcer) |
+| Maven | 3.9+ (enforced by Maven Enforcer) |
+| Compiler flags | `--enable-preview`, `-parameters` (required for Spring MVC path variable names) |
+| JaCoCo coverage gate | 80% line coverage (all modules) |
 
 ---
 

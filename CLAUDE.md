@@ -14,6 +14,8 @@
 
 This repository implements **Aether Grid** — the distributed intelligence layer — as a **Maven multi-module Spring Boot 3.x / Java 21** application. It sits as a smart proxy and governance layer in front of any API ecosystem.
 
+**Current status:** Phases 0–10 complete. Active phase: Phase 11 — Multi-Tenancy + Compliance.
+
 **Two runnable applications:**
 - `aether-proxy` — Data Plane (port 8080): Spring Cloud Gateway intercepting all API traffic
 - `aether-api` — Control Plane (port 8081): Admin REST API for governance and configuration
@@ -33,13 +35,13 @@ This repository implements **Aether Grid** — the distributed intelligence laye
 | Database | PostgreSQL 16 + pgvector extension |
 | Cache / Rate Limiting | Redis 7 |
 | Vector Store | pgvector (primary), Chroma (adapter) |
-| LLM Runtime | Ollama — Gemma2:2b / Phi-3-mini |
+| LLM Runtime | Ollama (default, local) · Groq cloud · Anthropic Claude — selected via `AETHER_LLM_PROVIDER` env var |
 | Embedding Model | all-MiniLM-L6-v2 via Ollama (384-dim vectors) |
 | Resilience | Resilience4j (circuit breaker, retry, bulkhead) |
 | Policy Rules | Spring EL (SpEL) evaluated against YAML in PostgreSQL |
 | Observability | OpenTelemetry + Micrometer + Prometheus + Grafana |
 | DB Migrations | Flyway |
-| Build | Maven (multi-module), Java 21 compiler |
+| Build | Maven (multi-module), Java 21 compiler (`--enable-preview`, `-parameters` flags required) |
 | Local Dev | Docker Compose (full stack with healthchecks) |
 | Production | Kubernetes + Helm |
 | CI/CD | GitHub Actions (OIDC, no static secrets) |
