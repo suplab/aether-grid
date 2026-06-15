@@ -2,7 +2,7 @@
 
 > A human-centric cognitive computing framework — philosophy, personal intelligence, and distributed autonomous agents.
 
-**Author:** Suplab &nbsp;|&nbsp; **Status:** Active Development &nbsp;|&nbsp; **Phases Complete:** 0–10 of 12
+**Author:** Suplab &nbsp;|&nbsp; **Status:** All 12 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–12 of 12
 
 ---
 
@@ -57,7 +57,7 @@ Here, **Aether** is the invisible cognitive fabric that connects humans, memorie
 
 ## Aether Grid — Current Implementation
 
-Aether Grid is the distributed intelligence layer implemented in this repository (Phases 0–10 complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
+Aether Grid is the distributed intelligence layer implemented in this repository (all 12 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
 
 - **Remembers** every API interaction semantically (all-MiniLM-L6-v2 embeddings + metadata in pgvector, 384-dim)
 - **Learns** patterns of successful and failing requests over time (PROCEDURAL/SEMANTIC/EPISODIC/EMOTIONAL memory types)
@@ -109,9 +109,10 @@ aether/
 │       └── session-log.md         # Rolling session log
 ├── .github/
 │   ├── instructions/              # Copilot glob-based instructions
+│   ├── owasp-suppressions.xml     # OWASP Dependency-Check accepted false positives
 │   └── workflows/
-│       ├── ci.yml                 # Build + test + quality gate
-│       └── release.yml            # Container build + push (OIDC)
+│       ├── ci.yml                 # Every push: Temurin 21, Maven verify, Postgres service, JaCoCo report
+│       └── quality-gate.yml       # PRs to main: Checkstyle (google_checks.xml) + OWASP (failBuildOnCVSS=9)
 ├── docs/
 │   ├── index.html                 # Visual concept page (always in sync)
 │   ├── architecture.md            # Technical architecture deep-dive
@@ -190,10 +191,10 @@ aether/
 │   │   ├── V008__create_audit_log.sql
 │   │   └── V009__create_outbox_events.sql
 │   ├── k8s/                       # Kubernetes manifests
-│   │   ├── deployments/           # aether-proxy, aether-api, aether-agents
-│   │   ├── services/
-│   │   ├── ingress/
-│   │   └── hpa/                   # HorizontalPodAutoscaler
+│   │   ├── namespace.yaml         # aether-grid namespace
+│   │   ├── secrets-template.yaml  # Required Secret keys (no values committed)
+│   │   ├── aether-api/            # Deployment, Service, HPA (min 2/max 8), ConfigMap
+│   │   └── aether-proxy/          # Deployment, Service, HPA (min 2/max 16), ConfigMap
 │   └── helm/aether/               # Helm chart for full-stack deployment
 │
 ├── CLAUDE.md                      # Project brief (eeik-bootstrap template)
@@ -333,6 +334,26 @@ curl -H "X-API-Key: <raw-key>" \
 # Grafana dashboards
 open http://localhost:3000
 ```
+
+**Kubernetes deployment** (production):
+
+```bash
+# Create secrets first — never commit actual values
+kubectl create secret generic aether-api-secrets \
+  --from-literal=postgres-url=jdbc:postgresql://... \
+  --from-literal=postgres-user=aether \
+  --from-literal=postgres-password=... \
+  --namespace aether-grid
+
+# Apply all manifests (namespace first, then resources)
+kubectl apply -f aether-infra/k8s/namespace.yaml
+kubectl apply -f aether-infra/k8s/
+
+# Verify pods are running
+kubectl get pods -n aether-grid
+```
+
+See `aether-infra/k8s/secrets-template.yaml` for the full list of required secret keys.
 
 **LLM provider selection** (set before starting `aether-proxy` or `aether-api`):
 

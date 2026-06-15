@@ -481,4 +481,86 @@ AetherGrid's development environment is governed by [eeik-bootstrap](https://git
 
 ---
 
-*Next: [Roadmap](roadmap.md) · [Progress](progress.md)*
+## CI/CD Pipeline
+
+### GitHub Actions — CI Workflow (`.github/workflows/ci.yml`)
+
+Triggers on every push to every branch. Runs a single `build` job with a 20-minute timeout.
+
+Key steps:
+1. Checkout with `actions/checkout` (SHA-pinned)
+2. `actions/setup-java` with Temurin 21 distribution and Maven cache
+3. Spin up `pgvector/pgvector:pg16` as a service container — exposes PostgreSQL on port 5432 so integration tests connect to a real database without a separate Docker Compose step
+4. `mvn --no-transfer-progress verify -pl !aether-infra` — compiles all modules, runs unit and integration tests, enforces the JaCoCo 80% line coverage gate
+5. Upload Surefire XML reports and JaCoCo HTML reports as artifacts (7-day retention)
+
+All action references are pinned to full commit SHAs. `permissions: contents: read` is set at the job level (least-privilege).
+
+### GitHub Actions — Quality Gate Workflow (`.github/workflows/quality-gate.yml`)
+
+Triggers on pull requests targeting `main` only. Two parallel jobs:
+
+| Job | Timeout | What it does |
+|---|---|---|
+| `checkstyle` | 15 min | Runs `mvn checkstyle:check` against `google_checks.xml` via `maven-checkstyle-plugin:3.6.0`; fails the build on any violation |
+| `dependency-audit` | 30 min | OWASP Dependency Check with `failBuildOnCVSS=9`; uploads HTML report as artifact (14-day retention); accepted false positives suppressed via `.github/owasp-suppressions.xml` |
+
+The `maven-checkstyle-plugin:3.6.0` is declared in the parent `pom.xml` `pluginManagement` block so all modules inherit the same configuration without repeating it.
+
+### Kubernetes Deployment (`aether-infra/k8s/`)
+
+Apply the full manifests with:
+
+```bash
+kubectl apply -f aether-infra/k8s/
+```
+
+**Namespace:** `aether-grid` — all resources live in this namespace. Create it first or include `namespace.yaml` at the top of the apply list.
+
+**Security posture (both Deployments):**
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+```
+
+A `/tmp` `emptyDir` volume is mounted to provide the JVM a writable temp directory while keeping the root filesystem read-only.
+
+**HPA ranges:**
+
+| Service | Min replicas | Max replicas | Scale trigger |
+|---|---|---|---|
+| `aether-api` | 2 | 8 | CPU utilisation ≥ 70% |
+| `aether-proxy` | 2 | 16 | CPU utilisation ≥ 70% |
+
+The data plane (`aether-proxy`) has a higher ceiling because it handles all inbound API traffic. The control plane (`aether-api`) is admin-only and scales more conservatively.
+
+**Liveness and readiness probes** target Spring Boot Actuator endpoints:
+- Liveness: `GET /actuator/health/liveness` — restarts the container if the JVM is stuck
+- Readiness: `GET /actuator/health/readiness` — gates traffic until the application context is fully started and all downstream dependencies are reachable
+
+### Secret Management
+
+`aether-infra/k8s/secrets-template.yaml` documents every required `Secret` key without embedding any value:
+
+| Key | Consumed by |
+|---|---|
+| `postgres-url` | Both Deployments |
+| `postgres-user` | Both Deployments |
+| `postgres-password` | Both Deployments |
+| `redis-url` | `aether-proxy` |
+| `groq-api-key` | Both Deployments (when `AETHER_LLM_PROVIDER=groq`) |
+| `anthropic-api-key` | Both Deployments (when `AETHER_LLM_PROVIDER=anthropic`) |
+
+Operators populate these via their preferred secrets injection mechanism: External Secrets Operator (recommended for production), AWS Secrets Manager, HashiCorp Vault, or `kubectl create secret generic`. The template file is committed; actual values are never committed.
+
+Non-sensitive runtime configuration (Kafka bootstrap servers, JWT issuer, LLM provider selection, rate-limit settings) is in a `ConfigMap` per service and is safe to version-control.
+
+---
+
+*See [Roadmap](roadmap.md) · [Progress](progress.md)*
