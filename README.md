@@ -1,63 +1,18 @@
-# Aether
+# Aether Grid
 
-> A human-centric cognitive computing framework — philosophy, personal intelligence, and distributed autonomous agents.
+> Distributed intelligence mesh — enterprise AI agent governance platform
+
+**Aether Grid** is the enterprise layer of the [Aether ecosystem](https://github.com/suplab/aether-core#ecosystem). It sits as a smart proxy and governance layer in front of any API ecosystem, orchestrating a mesh of specialised AI agents that learn, self-improve, and enforce policy across all API interactions.
+
+**Sister repository:** [suplab/aether-core](https://github.com/suplab/aether-core) — the personal cognitive engine that powers individual user context enrichment in Grid agents.
 
 **Author:** Suplab &nbsp;|&nbsp; **Status:** All 15 Phases Complete — Production Ready &nbsp;|&nbsp; **Phases Complete:** 0–15 of 15
 
 ---
 
-## The Three Layers
+## What Aether Grid Does
 
-```
-Aether                          ← This repository
-│
-├── Philosophy                  Philosophy: the invisible cognitive fabric
-│   connecting humans, memories, emotions, knowledge, and intelligence
-│
-├── Aether Core                 Personal cognitive engine — the individual mind OS
-│   ├── Sensory Interface       Text, voice, documents, email, calendar, IoT sensors
-│   ├── Context Engine          Current task · location · time · goals · history
-│   ├── Memory Engine           Episodic · Semantic · Procedural · Emotional
-│   ├── Knowledge Graph         Relationships as first-class citizens
-│   ├── Reasoning Engine        System 1 (fast) · System 2 (deep) · Meta-reasoning
-│   ├── Emotional Context       Stress · confidence · motivation · frustration
-│   ├── Reflection Engine       What have I learned? What should be forgotten?
-│   └── Action Engine           Reminders · workflows · APIs · agent coordination
-│
-└── Aether Grid                 Distributed agent ecosystem — collective intelligence
-    ├── Multi-Agent Orchestration
-    ├── Shared Semantic Memory (PGVector)
-    ├── API Governance & Policy-as-Code
-    ├── Event-Driven Communication (Kafka)
-    └── Autonomous Self-Debugging
-```
-
-| Layer | Purpose |
-|---|---|
-| **Aether** | Philosophy and vision — the cognitive fabric |
-| **Aether Core** | Individual cognitive engine — a personal mind OS |
-| **Aether Grid** | Distributed agent ecosystem — collective intelligence |
-
----
-
-## What is Aether?
-
-Historically, _aether_ was the invisible medium believed to connect everything in the universe.
-
-Here, **Aether** is the invisible cognitive fabric that connects humans, memories, emotions, knowledge, and intelligent systems. It is not merely an AI assistant — it is envisioned as:
-
-- A **second mind** — a persistent reasoning companion
-- A **memory extension** — cumulative knowledge across all interactions
-- A **digital consciousness interface** — bridging human cognition and machine intelligence
-- A **cognitive infrastructure** — the backbone for augmenting human capability, not replacing it
-
-> _«Aether is a human-centric cognitive ecosystem. Aether Core is the digital extension of an individual's mind. Aether Grid is the distributed network of intelligent agents that transforms individual cognition into collective intelligence.»_
-
----
-
-## Aether Grid — Current Implementation
-
-Aether Grid is the distributed intelligence layer implemented in this repository (all 15 phases complete). It sits as a **smart proxy and governance layer** in front of any API ecosystem:
+Aether Grid is implemented as a **Maven multi-module Spring Boot 3.x / Java 21** application. It operates as:
 
 - **Remembers** every API interaction semantically (all-MiniLM-L6-v2 embeddings + metadata in pgvector, 384-dim)
 - **Learns** patterns of successful and failing requests over time (PROCEDURAL/SEMANTIC/EPISODIC/EMOTIONAL memory types)
@@ -71,33 +26,14 @@ Aether Grid is the distributed intelligence layer implemented in this repository
 - **Protects PII** via `GdprRedactionService` (email, phone, cards, SSN, JWT, API keys) before any persistence
 - **Enforces confidence gates**: agents with confidence < 0.8 on BLOCK decisions require human-in-the-loop
 
----
-
-## Core Principles
-
-### Persistent Memory
-Traditional AI forgets. Aether remembers.
-```
-Experience → Understand → Remember → Associate → Evolve
-```
-
-### Emotional Intelligence
-Human decisions are rarely purely rational. Aether models stress, confidence, motivation, and frustration — not to imitate them, but to understand and adapt to them.
-
-### Contextual Reasoning
-```
-Person + Time + Environment + History + Emotional State = Meaning
-```
-
-### Human Augmentation
-Agents with confidence < 0.8 never auto-block — human-in-the-loop is a hard constraint, not an afterthought. Aether amplifies human capability; it does not replace it.
+> **Sister repository:** [Aether Core](https://github.com/suplab/aether-core) (`suplab/aether-core`) — the personal cognitive engine. Aether Grid integrates with Core via `PersonalContextPort` to enrich agent decisions with individual user context.
 
 ---
 
 ## Repository Structure
 
 ```
-aether/
+aether-grid/
 ├── .claude/
 │   ├── agents/                    # 19 specialist agents (eeik-bootstrap)
 │   ├── commands/                  # 5 slash commands (/estimate, /review, /adr, /memory-update, /security-scan)
@@ -131,7 +67,7 @@ aether/
 │       ├── 005-spel-policy-rules.md
 │       └── 006-flyway-migrations.md
 │
-├── aether-core/                   # Shared domain models, events, port interfaces
+├── aether-domain/                 # Shared domain models, events, port interfaces
 │   └── src/main/java/com/suplab/aether/core/
 │       ├── domain/                # ApiCall, Tenant, value objects (Java records)
 │       ├── events/                # Sealed DomainEvent hierarchy
@@ -224,7 +160,7 @@ aether/
 
 ```
                     ┌──────────────────────────────────────┐
-                    │              Aether                   │
+                    │           Aether Grid                 │
                     │                                       │
   Incoming  ──────► │  aether-proxy  (port 8080)           │
   API calls         │  Spring Cloud Gateway                 │
@@ -307,7 +243,6 @@ All agents implement the `Agent` SPI and are auto-discovered via `AgentRegistry`
 - **Engineering Intelligence Platform** — code, architecture, documentation, and release agents
 - **Agentic AI Infrastructure** — shared memory and orchestration backbone for any multi-agent system
 - **Insurance Claims Platform** — claim analysis, fraud detection, settlement, and communication agents
-- **Personal Cognitive Companion** — data and reasoning plane backing Aether Core
 
 ---
 
@@ -400,7 +335,7 @@ export ANTHROPIC_API_KEY=<key>
 
 | Document | Description |
 |---|---|
-| [Concept & Vision](docs/index.html) | Visual overview of the full Aether ecosystem |
+| [Concept & Vision](docs/index.html) | Visual overview of Aether Grid |
 | [Architecture](docs/architecture.md) | Technical deep-dive: modules, patterns, data model, security |
 | [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–15) |
 | [Progress](docs/progress.md) | Live development progress tracker |
