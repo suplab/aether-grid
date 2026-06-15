@@ -13,7 +13,7 @@
     <description>Human-centric cognitive computing framework — parent POM</description>
 
     <modules>
-        <module>aether-core</module>
+        <module>aether-domain</module>
         <module>aether-memory</module>
         <module>aether-agents</module>
         <module>aether-policy</module>
@@ -104,7 +104,7 @@
             <!-- Internal modules -->
             <dependency>
                 <groupId>com.suplab.aether</groupId>
-                <artifactId>aether-core</artifactId>
+                <artifactId>aether-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
