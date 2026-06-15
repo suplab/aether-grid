@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Active Phase:** Phase 11 — Multi-Tenancy + Compliance
+**Active Phase:** Phase 12 — CI/CD + Kubernetes
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-15
 
 ---
 
@@ -27,7 +27,7 @@
 | 8 | Policy Engine | ✅ Complete | 1 |
 | 9 | Admin REST API + Observability | ✅ Complete | 1 |
 | 10 | Advanced Agents + Observability | ✅ Complete | 1 |
-| 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
+| 11 | Multi-Tenancy + Compliance | ✅ Complete | 1 |
 | 12 | CI/CD + Kubernetes | 📋 Planned | — |
 
 ---
@@ -311,9 +311,49 @@
 
 ---
 
-## Phase 11 — Multi-Tenancy + Compliance 📋
+## Phase 11 — Multi-Tenancy + Compliance ✅
 
-_Not yet started._
+**Commit:** `feat(compliance): GDPR memory opt-out, right-to-erasure, RLS, and audit logging`
+
+### What was done
+
+- `V010__tenant_gdpr_preferences.sql` — `memory_opt_out BOOLEAN NOT NULL DEFAULT FALSE` and `data_retention_days INT NOT NULL DEFAULT 365` added to `tenants` table
+- `V011__row_level_security.sql` — PostgreSQL RLS enabled on `memory_embeddings`, `api_calls`, `policies`, `agent_decisions`, `audit_log`; `FORCE ROW LEVEL SECURITY` on `tenants`; all policies use `current_setting('app.tenant_id', true)` as the row filter
+- `Tenant` domain — `memoryOptOut` field, `optOutOfMemory()`, `optIntoMemory()`, `reconstitute()` 5-arg overload (all already present from prior phase)
+- `MemoryStore` port — `deleteAll(TenantId)` (already present from prior phase)
+- `PGVectorMemoryStore` — `deleteAll()` implemented with tenant-scoped `DELETE` (already present)
+- `ApiCallMemoryConsumer` — tenant opt-out check (skip if `memoryOptOut=true` or tenant not found) and GDPR redaction before embedding (already wired)
+- `JdbcTenantRepository` (proxy) — `memory_opt_out` added to SELECT and UPSERT SQL; `TENANT_MAPPER` calls 5-arg `reconstitute()`
+- `AuditLogService` — `log(TenantId, action, detail, actor)` convenience overload; `findByTenant(TenantId, int limit)` query returning `List<Map<String, Object>>`; SQL corrected to use actual schema column names (`occurred_at`, not `created_at`)
+- `TenantResponse` record — `memoryOptOut` field added; `from()` maps `tenant.memoryOptOut()`
+- `TenantController` — `AuditLogService` and `MemoryStore` added as constructor parameters; `PUT /{id}/gdpr/memory-opt-out` (opt out), `DELETE /{id}/gdpr/memory-opt-out` (opt in), `DELETE /{id}/memories` (right-to-erasure); audit events logged for all lifecycle transitions
+- `PolicyController` — `AuditLogService` added as constructor parameter; `POLICY_CREATED`, `POLICY_ACTIVATED`, `POLICY_ARCHIVED` audit events
+- `AuditController` — `GET /api/v1/tenants/{tenantId}/audit?limit=50` — returns paged audit log for a tenant
+- Tests: `ApiCallMemoryConsumerTest` (12 tests — added opt-out skip, unknown tenant skip, redaction verification); `TenantControllerTest` (11 tests — added opt-out, opt-in, erasure, 404-on-erasure); `AuditControllerTest` (3 tests — list, empty, limit param); `PolicyControllerTest` updated with `AuditLogService` mock bean
+
+### Verification result
+
+`mvn clean test -pl aether-memory` — 12 tests, 0 failures  
+`mvn clean test -pl aether-api` — 24 tests, 0 failures  
+`mvn clean test -pl aether-proxy` — 5 tests, 0 failures  
+`mvn clean test -pl aether-policy` — 14 tests, 0 failures
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-infra/db/migration/V010__tenant_gdpr_preferences.sql` | Created — `memory_opt_out`, `data_retention_days` columns |
+| `aether-infra/db/migration/V011__row_level_security.sql` | Created — RLS policies on all tenant-scoped tables |
+| `aether-proxy/.../repository/JdbcTenantRepository.java` | Updated — `memory_opt_out` in SQL + 5-arg `reconstitute()` |
+| `aether-policy/.../audit/AuditLogService.java` | Updated — `log(TenantId,…)` overload + `findByTenant()` |
+| `aether-api/.../dto/TenantResponse.java` | Updated — `memoryOptOut` field |
+| `aether-api/.../controller/TenantController.java` | Updated — GDPR endpoints + audit logging |
+| `aether-api/.../controller/PolicyController.java` | Updated — `AuditLogService` + audit events |
+| `aether-api/.../controller/AuditController.java` | Created — audit query endpoint |
+| `aether-memory/.../consumer/ApiCallMemoryConsumerTest.java` | Updated — 4-arg constructor + 3 new tests |
+| `aether-api/src/test/.../TenantControllerTest.java` | Updated — `AuditLogService`/`MemoryStore` mocks + 4 new tests |
+| `aether-api/src/test/.../PolicyControllerTest.java` | Updated — `AuditLogService` mock bean |
+| `aether-api/src/test/.../AuditControllerTest.java` | Created — 3 tests |
 
 ---
 

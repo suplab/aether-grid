@@ -6,7 +6,9 @@ import com.suplab.aether.core.domain.Tenant;
 import com.suplab.aether.core.domain.TenantId;
 import com.suplab.aether.core.domain.TenantStatus;
 import com.suplab.aether.core.exception.TenantNotFoundException;
+import com.suplab.aether.core.ports.MemoryStore;
 import com.suplab.aether.core.ports.TenantRepository;
+import com.suplab.aether.policy.audit.AuditLogService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -19,7 +21,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -36,6 +42,12 @@ class TenantControllerTest {
 
     @MockBean
     private TenantRepository tenantRepository;
+
+    @MockBean
+    private AuditLogService auditLogService;
+
+    @MockBean
+    private MemoryStore memoryStore;
 
     private static final UUID TENANT_UUID = UUID.randomUUID();
     private static final String VALID_API_KEY = "a".repeat(32);
@@ -54,7 +66,8 @@ class TenantControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Acme Corp"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.id").isNotEmpty());
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.memoryOptOut").value(false));
     }
 
     @Test
@@ -96,7 +109,8 @@ class TenantControllerTest {
         mockMvc.perform(get("/api/v1/tenants/{id}", TENANT_UUID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Acme Corp"))
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.memoryOptOut").value(false));
     }
 
     @Test
@@ -141,5 +155,78 @@ class TenantControllerTest {
         mockMvc.perform(put("/api/v1/tenants/{id}/reactivate", TENANT_UUID).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    @WithMockUser
+    void optOut_setsMemoryOptOutTrue() throws Exception {
+        var tenant = Tenant.reconstitute(
+                TenantId.of(TENANT_UUID.toString()),
+                "Acme Corp",
+                "hash123",
+                TenantStatus.ACTIVE,
+                false
+        );
+        when(tenantRepository.findById(TenantId.of(TENANT_UUID.toString()))).thenReturn(Optional.of(tenant));
+        doNothing().when(tenantRepository).save(any());
+
+        mockMvc.perform(put("/api/v1/tenants/{id}/gdpr/memory-opt-out", TENANT_UUID).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memoryOptOut").value(true));
+
+        verify(auditLogService).log(TenantId.of(TENANT_UUID.toString()),
+                "GDPR_MEMORY_OPT_OUT", "memory storage disabled", "system");
+    }
+
+    @Test
+    @WithMockUser
+    void optIn_clearsMemoryOptOut() throws Exception {
+        var tenant = Tenant.reconstitute(
+                TenantId.of(TENANT_UUID.toString()),
+                "Acme Corp",
+                "hash123",
+                TenantStatus.ACTIVE,
+                true
+        );
+        when(tenantRepository.findById(TenantId.of(TENANT_UUID.toString()))).thenReturn(Optional.of(tenant));
+        doNothing().when(tenantRepository).save(any());
+
+        mockMvc.perform(delete("/api/v1/tenants/{id}/gdpr/memory-opt-out", TENANT_UUID).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memoryOptOut").value(false));
+
+        verify(auditLogService).log(TenantId.of(TENANT_UUID.toString()),
+                "GDPR_MEMORY_OPT_IN", "memory storage re-enabled", "system");
+    }
+
+    @Test
+    @WithMockUser
+    void eraseMemories_returnsNoContent() throws Exception {
+        var tenant = Tenant.reconstitute(
+                TenantId.of(TENANT_UUID.toString()),
+                "Acme Corp",
+                "hash123",
+                TenantStatus.ACTIVE
+        );
+        when(tenantRepository.findById(TenantId.of(TENANT_UUID.toString()))).thenReturn(Optional.of(tenant));
+        doNothing().when(memoryStore).deleteAll(any());
+
+        mockMvc.perform(delete("/api/v1/tenants/{id}/memories", TENANT_UUID).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(memoryStore).deleteAll(TenantId.of(TENANT_UUID.toString()));
+        verify(auditLogService).log(TenantId.of(TENANT_UUID.toString()),
+                "GDPR_RIGHT_TO_ERASURE", "all memories deleted for tenant", "system");
+    }
+
+    @Test
+    @WithMockUser
+    void eraseMemories_returns404ForMissingTenant() throws Exception {
+        when(tenantRepository.findById(any())).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/api/v1/tenants/{id}/memories", UUID.randomUUID()).with(csrf()))
+                .andExpect(status().isNotFound());
+
+        verify(memoryStore, never()).deleteAll(any());
     }
 }

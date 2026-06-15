@@ -5,7 +5,9 @@ import com.suplab.aether.api.dto.TenantResponse;
 import com.suplab.aether.core.domain.Tenant;
 import com.suplab.aether.core.domain.TenantId;
 import com.suplab.aether.core.exception.TenantNotFoundException;
+import com.suplab.aether.core.ports.MemoryStore;
 import com.suplab.aether.core.ports.TenantRepository;
+import com.suplab.aether.policy.audit.AuditLogService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,9 +28,15 @@ public class TenantController {
     private static final Logger log = LoggerFactory.getLogger(TenantController.class);
 
     private final TenantRepository tenantRepository;
+    private final AuditLogService auditLogService;
+    private final MemoryStore memoryStore;
 
-    public TenantController(TenantRepository tenantRepository) {
+    public TenantController(TenantRepository tenantRepository,
+                            AuditLogService auditLogService,
+                            MemoryStore memoryStore) {
         this.tenantRepository = tenantRepository;
+        this.auditLogService = auditLogService;
+        this.memoryStore = memoryStore;
     }
 
     @PostMapping
@@ -37,6 +45,7 @@ public class TenantController {
         var tenant = Tenant.onboard(request.name(), apiKeyHash);
         tenantRepository.save(tenant);
         log.info("Onboarded tenant id={} name={}", tenant.id(), tenant.name());
+        auditLogService.log(tenant.id(), "TENANT_ONBOARDED", "tenant onboarded with name=" + tenant.name(), "system");
         return ResponseEntity.status(HttpStatus.CREATED).body(TenantResponse.from(tenant));
     }
 
@@ -49,20 +58,59 @@ public class TenantController {
 
     @PutMapping("/{tenantId}/suspend")
     public ResponseEntity<TenantResponse> suspend(@PathVariable UUID tenantId) {
-        var tenant = tenantRepository.findById(TenantId.of(tenantId.toString()))
-                .orElseThrow(() -> new TenantNotFoundException(TenantId.of(tenantId.toString())));
+        var tid = TenantId.of(tenantId.toString());
+        var tenant = tenantRepository.findById(tid)
+                .orElseThrow(() -> new TenantNotFoundException(tid));
         tenant.suspend();
         tenantRepository.save(tenant);
+        auditLogService.log(tid, "TENANT_SUSPENDED", "tenant suspended", "system");
         return ResponseEntity.ok(TenantResponse.from(tenant));
     }
 
     @PutMapping("/{tenantId}/reactivate")
     public ResponseEntity<TenantResponse> reactivate(@PathVariable UUID tenantId) {
-        var tenant = tenantRepository.findById(TenantId.of(tenantId.toString()))
-                .orElseThrow(() -> new TenantNotFoundException(TenantId.of(tenantId.toString())));
+        var tid = TenantId.of(tenantId.toString());
+        var tenant = tenantRepository.findById(tid)
+                .orElseThrow(() -> new TenantNotFoundException(tid));
         tenant.reactivate();
         tenantRepository.save(tenant);
+        auditLogService.log(tid, "TENANT_REACTIVATED", "tenant reactivated", "system");
         return ResponseEntity.ok(TenantResponse.from(tenant));
+    }
+
+    @PutMapping("/{tenantId}/gdpr/memory-opt-out")
+    public ResponseEntity<TenantResponse> optOut(@PathVariable UUID tenantId) {
+        var tid = TenantId.of(tenantId.toString());
+        var tenant = tenantRepository.findById(tid)
+                .orElseThrow(() -> new TenantNotFoundException(tid));
+        tenant.optOutOfMemory();
+        tenantRepository.save(tenant);
+        log.info("GDPR memory opt-out set for tenant id={}", tenantId);
+        auditLogService.log(tid, "GDPR_MEMORY_OPT_OUT", "memory storage disabled", "system");
+        return ResponseEntity.ok(TenantResponse.from(tenant));
+    }
+
+    @DeleteMapping("/{tenantId}/gdpr/memory-opt-out")
+    public ResponseEntity<TenantResponse> optIn(@PathVariable UUID tenantId) {
+        var tid = TenantId.of(tenantId.toString());
+        var tenant = tenantRepository.findById(tid)
+                .orElseThrow(() -> new TenantNotFoundException(tid));
+        tenant.optIntoMemory();
+        tenantRepository.save(tenant);
+        log.info("GDPR memory opt-in restored for tenant id={}", tenantId);
+        auditLogService.log(tid, "GDPR_MEMORY_OPT_IN", "memory storage re-enabled", "system");
+        return ResponseEntity.ok(TenantResponse.from(tenant));
+    }
+
+    @DeleteMapping("/{tenantId}/memories")
+    public ResponseEntity<Void> eraseMemories(@PathVariable UUID tenantId) {
+        var tid = TenantId.of(tenantId.toString());
+        tenantRepository.findById(tid)
+                .orElseThrow(() -> new TenantNotFoundException(tid));
+        memoryStore.deleteAll(tid);
+        log.info("GDPR right-to-erasure: all memories deleted for tenant id={}", tenantId);
+        auditLogService.log(tid, "GDPR_RIGHT_TO_ERASURE", "all memories deleted for tenant", "system");
+        return ResponseEntity.noContent().build();
     }
 
     private static String sha256Hex(String input) {

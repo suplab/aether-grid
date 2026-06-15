@@ -7,13 +7,15 @@ import java.util.UUID;
 public record TenantResponse(
         UUID id,
         String name,
-        String status
+        String status,
+        boolean memoryOptOut
 ) {
     public static TenantResponse from(Tenant tenant) {
         return new TenantResponse(
                 tenant.id().value(),
                 tenant.name(),
-                tenant.status().name()
+                tenant.status().name(),
+                tenant.memoryOptOut()
         );
     }
 }
