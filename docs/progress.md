@@ -1,4 +1,9 @@
-# Aether — Development Progress
+# Aether Grid — Development Progress
+
+> **Scope:** This tracker covers **Aether Grid** (`suplab/aether-grid`) only.
+> For Aether Core progress, see [suplab/aether-core](https://github.com/suplab/aether-core).
+
+---
 
 > This file is updated with every commit. It is the live source of truth for what has been built.
 
@@ -6,7 +11,7 @@
 
 ## Current Status
 
-**Active Phase:** All 15 phases complete. Next: Phase 16 — Aether Core Integration.
+**Active Phase:** Phase 17 — Aether Core Scaffold (sister repo bootstrap) 🔄 In Progress. Phases 0–16 complete.
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-15
 
@@ -32,6 +37,8 @@
 | 13 | Self-Improving Agents | ✅ Complete | 1 |
 | 14 | Dashboard / Control Center | ✅ Complete | 1 |
 | 15 | Kubernetes + Helm Production Hardening | ✅ Complete | 1 |
+| 16 | Aether Core Integration | ✅ Complete | 1 |
+| 17 | Aether Core Scaffold (sister repo bootstrap) | 🔄 In Progress | — |
 
 ---
 
@@ -90,11 +97,11 @@
 ### What was done
 
 - `pom.xml` (parent) — Spring Boot 3.3.5 BOM, Spring Cloud 2023.0.3 BOM, Resilience4j 2.2.0 BOM, Testcontainers BOM. Java 21 compiler with `--enable-preview`. Maven Enforcer requires Java 21+ and Maven 3.9+. JaCoCo 80% line coverage gate. All internal module versions managed centrally.
-- `aether-core/pom.xml` — jakarta.validation-api, slf4j-api, assertj (test)
+- `aether-domain/pom.xml` — jakarta.validation-api, slf4j-api, assertj (test)
 - `aether-memory/pom.xml` — spring-boot-starter, spring-data-jdbc, postgresql, pgvector, spring-kafka, testcontainers-postgresql/kafka
-- `aether-agents/pom.xml` — aether-core + aether-memory, spring-boot-starter, spring-kafka, spring-web (RestClient for Ollama), jackson-databind, mockito
-- `aether-policy/pom.xml` — aether-core, spring-boot-starter, spring-data-jdbc, postgresql, spring-kafka, jackson-dataformat-yaml, flyway-core, flyway-database-postgresql
-- `aether-proxy/pom.xml` — aether-core + aether-policy, spring-cloud-starter-gateway, circuit-breaker-reactor-resilience4j, spring-data-redis-reactive, spring-kafka, spring-data-jdbc, actuator, micrometer-prometheus, reactor-test
+- `aether-agents/pom.xml` — aether-domain + aether-memory, spring-boot-starter, spring-kafka, spring-web (RestClient for Ollama), jackson-databind, mockito
+- `aether-policy/pom.xml` — aether-domain, spring-boot-starter, spring-data-jdbc, postgresql, spring-kafka, jackson-dataformat-yaml, flyway-core, flyway-database-postgresql
+- `aether-proxy/pom.xml` — aether-domain + aether-policy, spring-cloud-starter-gateway, circuit-breaker-reactor-resilience4j, spring-data-redis-reactive, spring-kafka, spring-data-jdbc, actuator, micrometer-prometheus, reactor-test
 - `aether-api/pom.xml` — all library modules, spring-boot-starter-web, spring-security, oauth2-resource-server, spring-data-jdbc, spring-validation, actuator, micrometer-prometheus, micrometer-tracing-bridge-otel, opentelemetry-exporter-otlp, springdoc-openapi 2.6.0, spring-security-test
 - `aether-infra/pom.xml` — pom packaging only (no Java source)
 - `aether-proxy/src/main/java/.../AetherProxyApplication.java` — Spring Boot entry point (port 8080)
@@ -129,7 +136,7 @@
 
 ### What was done
 
-**`aether-core` — pure domain (no Spring dependency):**
+**`aether-domain` — pure domain (no Spring dependency):**
 - Value objects (Java 21 records): `ApiCallId`, `TenantId`, `ApiEndpoint`, `CallMetrics`, `MemoryRecord`
 - Enums: `CallOutcome`, `HttpMethod`, `MemoryType`, `TenantStatus`
 - Aggregates: `ApiCall` (raises `ApiCallRecordedEvent` on creation, pulls events after dispatch), `Tenant` (lifecycle: ACTIVE → SUSPENDED / DEPROVISIONED)
@@ -152,7 +159,7 @@
 - `AgentRegistry` — Spring-injected `List<Agent>`, `disableAgent(type)` kill-switch, `findByCapability()`
 
 ### Verification result
-`mvn test -pl aether-core` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
+`mvn test -pl aether-domain` — 19 tests, 0 failures. `mvn compile -pl aether-agents -am` — clean build.
 
 ---
 
@@ -413,7 +420,7 @@
 
 ### What was done
 
-**`aether-core` — new domain types:**
+**`aether-domain` — new domain types:**
 - `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN`
 - `AgentFeedback` record: `id`, `tenantId`, `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`, `recordedAt`
 - `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()`
@@ -435,9 +442,9 @@
 
 | File | Change |
 |---|---|
-| `aether-core/.../domain/DecisionOutcome.java` | Created — enum |
-| `aether-core/.../domain/AgentFeedback.java` | Created — record |
-| `aether-core/.../ports/AgentFeedbackPort.java` | Created — port interface |
+| `aether-domain/.../domain/DecisionOutcome.java` | Created — enum |
+| `aether-domain/.../domain/AgentFeedback.java` | Created — record |
+| `aether-domain/.../ports/AgentFeedbackPort.java` | Created — port interface |
 | `aether-agents/.../spi/AgentCapability.java` | Updated — added `SELF_IMPROVEMENT` |
 | `aether-agents/.../selfimproving/SelfImprovingAgent.java` | Created |
 | `aether-api/.../service/AgentLearningService.java` | Created |
@@ -547,6 +554,21 @@
 | `.github/workflows/docker-build.yml` | Created — OIDC, matrix, multi-arch, GHCR push |
 | `.github/workflows/helm-release.yml` | Created — lint + dry-run + OCI push |
 | `docs/progress.md` | Updated — Phase 15 marked complete |
+
+---
+
+## Phase 16 — Aether Core Integration ✅
+
+**Commit:** `feat(agents): integrate aether-core personal context via PersonalContextPort and AetherCoreBridgeAgent`
+
+### What was done
+
+- `PersonalContextPort` interface in `aether-domain` — defines the contract for fetching personal user context from Aether Core
+- `AetherCoreHttpAdapter` — HTTP adapter implementing `PersonalContextPort`; calls Core's `GET /api/v1/personal-context/{tenantId}/{userId}` endpoint when `aether.core.base-url` is configured
+- `AetherCoreBridgeAgent` — agent that enriches `AgentInput.context` with personal memories, preferences, and emotional state retrieved from Core before agent decisions
+- `aether.core.base-url` configuration property — when absent, the bridge agent is a no-op, keeping the integration optional
+
+See [suplab/aether-core](https://github.com/suplab/aether-core) for Core's implementation, schema, and API contract.
 
 ---
 

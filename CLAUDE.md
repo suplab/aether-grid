@@ -6,21 +6,24 @@
 
 ## What This Project Is
 
-**Aether** (`suplab/aether`) is a human-centric cognitive computing framework encompassing:
+**Aether Grid** (`suplab/aether-grid`) is the distributed enterprise intelligence layer of the Aether ecosystem — a smart proxy and governance platform that sits in front of any API ecosystem, orchestrating a mesh of specialised AI agents that learn, self-improve, and enforce policy.
 
-- **Aether Philosophy** — the invisible cognitive fabric connecting humans, memories, emotions, and intelligence
-- **Aether Core** — individual cognitive engine (personal mind OS: memory, reasoning, emotional context)
-- **Aether Grid** — distributed agent ecosystem (cognitive mesh of specialized agents sharing memory and governing API interactions)
+> **Ecosystem navigation**
+> | Layer | Repo | Purpose |
+> |---|---|---|
+> | Aether Philosophy | — | The vision: cognitive fabric connecting humans, memory, and AI |
+> | **Aether Core** | [`suplab/aether-core`](https://github.com/suplab/aether-core) | Personal cognitive engine — individual memory, reasoning, emotional context |
+> | **Aether Grid** | `suplab/aether-grid` ← **you are here** | Distributed agent mesh — enterprise API governance platform |
 
-This repository implements **Aether Grid** — the distributed intelligence layer — as a **Maven multi-module Spring Boot 3.x / Java 21** application. It sits as a smart proxy and governance layer in front of any API ecosystem.
+**Sister repository:** [`suplab/aether-core`](https://github.com/suplab/aether-core) — Aether Grid integrates with Core via `PersonalContextPort` to enrich agent decisions with individual user context.
 
-**Current status:** Phases 0–15 complete. Active phase: Phase 16 — Aether Core Integration.
+**Current status:** Phases 0–16 complete. Active phase: Phase 17 — Aether Core scaffold.
 
 **Two runnable applications:**
 - `aether-proxy` — Data Plane (port 8080): Spring Cloud Gateway intercepting all API traffic
 - `aether-api` — Control Plane (port 8081): Admin REST API for governance and configuration
 
-**Five library modules:** `aether-core`, `aether-memory`, `aether-agents`, `aether-policy`, `aether-infra`
+**Five library modules:** `aether-domain`, `aether-memory`, `aether-agents`, `aether-policy`, `aether-infra`
 
 ---
 
