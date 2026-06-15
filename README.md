@@ -354,21 +354,26 @@ curl -H "X-API-Key: <raw-key>" \
 open http://localhost:3000
 ```
 
-**Kubernetes deployment** (production):
+**Kubernetes deployment** (production via Helm):
 
 ```bash
-# Create secrets first — never commit actual values
-kubectl create secret generic aether-api-secrets \
-  --from-literal=postgres-url=jdbc:postgresql://... \
-  --from-literal=postgres-user=aether \
-  --from-literal=postgres-password=... \
-  --namespace aether-grid
+# Vanilla Kubernetes
+helm install aether-grid aether-infra/helm/aether-grid
 
-# Apply all manifests (namespace first, then resources)
+# AWS EKS (ALB Ingress Controller, IRSA, ECR)
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-aws.yaml
+
+# OpenShift (Route edge TLS, Quay.io, OCP securityContext)
+helm install aether-grid aether-infra/helm/aether-grid \
+  -f aether-infra/helm/aether-grid/values-openshift.yaml
+```
+
+Raw Kubernetes manifests are also available for direct `kubectl apply`:
+
+```bash
 kubectl apply -f aether-infra/k8s/namespace.yaml
 kubectl apply -f aether-infra/k8s/
-
-# Verify pods are running
 kubectl get pods -n aether-grid
 ```
 
@@ -397,7 +402,7 @@ export ANTHROPIC_API_KEY=<key>
 |---|---|
 | [Concept & Vision](docs/index.html) | Visual overview of the full Aether ecosystem |
 | [Architecture](docs/architecture.md) | Technical deep-dive: modules, patterns, data model, security |
-| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–14) |
+| [Roadmap](docs/roadmap.md) | Phased delivery plan (Phase 0–15) |
 | [Progress](docs/progress.md) | Live development progress tracker |
 | [ADRs](docs/adr/) | Architecture Decision Records |
 
