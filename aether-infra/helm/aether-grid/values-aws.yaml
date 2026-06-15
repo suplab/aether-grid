@@ -1,0 +1,38 @@
+global:
+  imageRegistry: "123456789012.dkr.ecr.us-east-1.amazonaws.com/suplab"
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT_ID"
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    external-dns.alpha.kubernetes.io/hostname: "api.aether.example.com,proxy.aether.example.com"
+  hosts:
+    api:
+      host: api.aether.example.com
+      path: /
+    proxy:
+      host: proxy.aether.example.com
+      path: /
+
+api:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/aether-api-role"
+  secrets:
+    # Populated by AWS Secrets Manager CSI driver or External Secrets Operator.
+    existingSecret: "aether-api-secrets"
+
+proxy:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/aether-proxy-role"
+  secrets:
+    existingSecret: "aether-proxy-secrets"
+
+serviceMonitor:
+  enabled: true

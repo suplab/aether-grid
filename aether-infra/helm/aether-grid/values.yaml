@@ -1,0 +1,117 @@
+global:
+  imageRegistry: "ghcr.io/suplab"
+  imagePullPolicy: Always
+  nameOverride: ""
+  namespaceOverride: "aether-grid"
+
+# OpenShift-specific toggle.
+# When true: render Route instead of Ingress, omit runAsUser/fsGroup from
+# securityContext (OpenShift assigns UIDs via SCC), apply SCC annotations.
+openshift:
+  enabled: false
+
+# OpenShift Route config — only evaluated when openshift.enabled is true.
+route:
+  api:
+    host: "api.aether.apps.cluster.example.com"
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  proxy:
+    host: "proxy.aether.apps.cluster.example.com"
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Standard K8s Ingress — mutually exclusive with openshift.enabled.
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    api:
+      host: api.aether.local
+      path: /
+    proxy:
+      host: proxy.aether.local
+      path: /
+  tls: []
+
+# Prometheus ServiceMonitor (requires prometheus-operator CRD).
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  interval: 30s
+
+# ─── aether-api (Control Plane, port 8081) ────────────────────────────────────
+api:
+  image:
+    repository: "ghcr.io/suplab/aether-api"
+    tag: "0.1.0-SNAPSHOT"
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+  serviceAccount:
+    create: true
+    # Annotations are merged in at deploy time; EKS IRSA goes in values-aws.yaml.
+    annotations: {}
+
+  # ConfigMap values — non-sensitive runtime configuration.
+  config:
+    kafkaBootstrapServers: "kafka:9092"
+    jwtIssuer: "https://auth.aether.local"
+    llmProvider: "ollama"
+    springProfilesActive: "k8s"
+
+  # Name of a pre-existing Secret (created by External Secrets Operator or
+  # manually via kubectl).  Never embed literal secret values here.
+  secrets:
+    existingSecret: "aether-api-secrets"
+
+# ─── aether-proxy (Data Plane, port 8080) ────────────────────────────────────
+proxy:
+  image:
+    repository: "ghcr.io/suplab/aether-proxy"
+    tag: "0.1.0-SNAPSHOT"
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+  serviceAccount:
+    create: true
+    annotations: {}
+
+  # ConfigMap values — non-sensitive runtime configuration.
+  config:
+    kafkaBootstrapServers: "kafka:9092"
+    rateLimitRps: "100"
+    rateLimitBurst: "200"
+    outboxRelayIntervalMs: "5000"
+    springProfilesActive: "k8s"
+
+  # Name of a pre-existing Secret.
+  secrets:
+    existingSecret: "aether-proxy-secrets"

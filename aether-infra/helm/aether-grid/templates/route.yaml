@@ -1,0 +1,43 @@
+{{- if .Values.openshift.enabled -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: aether-api
+  namespace: {{ include "aether-grid.namespace" . }}
+  labels:
+    {{- include "aether-grid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+spec:
+  host: {{ .Values.route.api.host }}
+  to:
+    kind: Service
+    name: aether-api
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.route.api.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.api.insecureEdgeTerminationPolicy }}
+  wildcardPolicy: None
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: aether-proxy
+  namespace: {{ include "aether-grid.namespace" . }}
+  labels:
+    {{- include "aether-grid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-plane
+spec:
+  host: {{ .Values.route.proxy.host }}
+  to:
+    kind: Service
+    name: aether-proxy
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.route.proxy.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.proxy.insecureEdgeTerminationPolicy }}
+  wildcardPolicy: None
+{{- end }}

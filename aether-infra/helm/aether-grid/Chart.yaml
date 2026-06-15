@@ -1,0 +1,14 @@
+apiVersion: v2
+name: aether-grid
+description: Aether Grid — Distributed AI Agent Governance Platform
+type: application
+version: 0.1.0
+appVersion: 0.1.0-SNAPSHOT
+keywords:
+  - aether
+  - ai-governance
+  - agent-platform
+  - spring-boot
+maintainers:
+  - name: Suplab
+    email: beingsuplab@gmail.com
