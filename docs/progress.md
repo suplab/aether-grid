@@ -1,4 +1,9 @@
-# Aether — Development Progress
+# Aether Grid — Development Progress
+
+> **Scope:** This tracker covers **Aether Grid** (`suplab/aether-grid`) only.
+> For Aether Core progress, see [suplab/aether-core](https://github.com/suplab/aether-core).
+
+---
 
 > This file is updated with every commit. It is the live source of truth for what has been built.
 
@@ -6,7 +11,7 @@
 
 ## Current Status
 
-**Active Phase:** All 15 phases complete. Next: Phase 16 — Aether Core Integration.
+**Active Phase:** Phase 17 — Aether Core Scaffold (sister repo bootstrap) 🔄 In Progress. Phases 0–16 complete.
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-15
 
@@ -32,6 +37,8 @@
 | 13 | Self-Improving Agents | ✅ Complete | 1 |
 | 14 | Dashboard / Control Center | ✅ Complete | 1 |
 | 15 | Kubernetes + Helm Production Hardening | ✅ Complete | 1 |
+| 16 | Aether Core Integration | ✅ Complete | 1 |
+| 17 | Aether Core Scaffold (sister repo bootstrap) | 🔄 In Progress | — |
 
 ---
 
@@ -547,6 +554,21 @@
 | `.github/workflows/docker-build.yml` | Created — OIDC, matrix, multi-arch, GHCR push |
 | `.github/workflows/helm-release.yml` | Created — lint + dry-run + OCI push |
 | `docs/progress.md` | Updated — Phase 15 marked complete |
+
+---
+
+## Phase 16 — Aether Core Integration ✅
+
+**Commit:** `feat(agents): integrate aether-core personal context via PersonalContextPort and AetherCoreBridgeAgent`
+
+### What was done
+
+- `PersonalContextPort` interface in `aether-domain` — defines the contract for fetching personal user context from Aether Core
+- `AetherCoreHttpAdapter` — HTTP adapter implementing `PersonalContextPort`; calls Core's `GET /api/v1/personal-context/{tenantId}/{userId}` endpoint when `aether.core.base-url` is configured
+- `AetherCoreBridgeAgent` — agent that enriches `AgentInput.context` with personal memories, preferences, and emotional state retrieved from Core before agent decisions
+- `aether.core.base-url` configuration property — when absent, the bridge agent is a no-op, keeping the integration optional
+
+See [suplab/aether-core](https://github.com/suplab/aether-core) for Core's implementation, schema, and API contract.
 
 ---
 

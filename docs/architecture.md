@@ -13,7 +13,7 @@ AetherGrid is implemented as a **Maven multi-module, modular-monolith** — two 
 - `aether-api` — Control Plane (port 8081): Admin REST API for governance and configuration
 
 **Five library modules** (JAR, no `main` class):
-- `aether-core` — shared domain model, events, port interfaces (pure Java, no Spring dependency)
+- `aether-domain` — shared domain model, events, port interfaces (pure Java, no Spring dependency)
 - `aether-memory` — embedding and vector storage
 - `aether-agents` — agent SPI, registry, orchestrator, all agent implementations, multi-provider LLM abstraction
 - `aether-policy` — policy engine, rule evaluation, GDPR redaction, audit log
@@ -27,12 +27,12 @@ AetherGrid is implemented as a **Maven multi-module, modular-monolith** — two 
 aether-proxy  ──────────────────────────────────────────────┐
       │                                                      │
       ▼                                                      ▼
-aether-core ◄── aether-memory ◄── aether-agents ──► aether-policy
+aether-domain ◄── aether-memory ◄── aether-agents ──► aether-policy
                                                            │
                                                       aether-api
 ```
 
-`aether-core` has **no dependencies** on other modules or on Spring. All other modules depend on it. `aether-proxy` and `aether-api` depend on the full stack.
+`aether-domain` has **no dependencies** on other modules or on Spring. All other modules depend on it. `aether-proxy` and `aether-api` depend on the full stack.
 
 ---
 
@@ -40,10 +40,10 @@ aether-core ◄── aether-memory ◄── aether-agents ──► aether-pol
 
 ### Hexagonal Architecture (Ports & Adapters)
 
-All outbound I/O (database, Kafka, Ollama, Redis) is behind interfaces defined in `aether-core`:
+All outbound I/O (database, Kafka, Ollama, Redis) is behind interfaces defined in `aether-domain`:
 
 ```java
-// aether-core: port (interface only, no implementation)
+// aether-domain: port (interface only, no implementation)
 public interface MemoryStore {
     void store(MemoryRecord record);
     List<MemoryRecord> findSimilar(float[] queryVector, int topK, TenantId tenantId);
@@ -679,7 +679,7 @@ All action references are pinned to full commit SHAs. All jobs use `permissions:
 
 The feedback loop gives operators a way to tell the system whether an agent decision was correct after the fact. Over time this history drives LLM-powered self-improvement suggestions reviewed on a weekly schedule.
 
-### Domain Model (`aether-core`)
+### Domain Model (`aether-domain`)
 
 ```
 DecisionOutcome (enum)
@@ -702,7 +702,7 @@ AgentFeedbackPort (interface)
   getPerformanceStats(TenantId) → Map<String, Object>
 ```
 
-`AgentFeedbackPort` is defined in `aether-core` (pure Java, no Spring dependency). `JdbcAgentFeedbackRepository` in `aether-api` is the adapter.
+`AgentFeedbackPort` is defined in `aether-domain` (pure Java, no Spring dependency). `JdbcAgentFeedbackRepository` in `aether-api` is the adapter.
 
 ### Database (`V012__agent_feedback.sql`)
 
@@ -789,6 +789,16 @@ Served by Spring Boot's default static resource handler at `http://localhost:808
 ### Security Posture
 
 `SecurityConfig` was updated to add `/dashboard/**` and `/*.html` to the `permitAll()` matcher list. The dashboard exposes only aggregate, non-PII statistics. Individual API call payloads, raw memory content, and tenant API keys are never surfaced.
+
+---
+
+## Aether Core Integration
+
+Aether Grid integrates with [Aether Core](https://github.com/suplab/aether-core) (`suplab/aether-core`) — the personal cognitive engine — via the `PersonalContextPort` interface.
+
+When `aether.core.base-url` is configured, `AetherCoreHttpAdapter` fetches personal user context from Core's `GET /api/v1/personal-context/{tenantId}/{userId}` endpoint before agent decisions. `AetherCoreBridgeAgent` enriches `AgentInput.context` with personal memories, preferences, and emotional state returned by Core.
+
+See [suplab/aether-core](https://github.com/suplab/aether-core) for Core's implementation, schema, and API contract.
 
 ---
 

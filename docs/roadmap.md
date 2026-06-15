@@ -30,7 +30,7 @@
 
 | Deliverable | Status |
 |---|---|
-| README.md — full rewrite with 3-layer Aether ecosystem | ✅ |
+| README.md — full rewrite scoping Aether Grid; ecosystem overview links to sister repos | ✅ |
 | docs/index.html — visual concept page | ✅ |
 | docs/architecture.md — technical deep-dive | ✅ |
 | docs/roadmap.md — this file | ✅ |
@@ -389,17 +389,25 @@
 
 ---
 
-## Phase 16 — Aether Core Integration 🔄
+## Phase 16 — Aether Core Integration ✅
 
-**Goal:** AetherGrid becomes the data plane and agent mesh backing a personal Aether Core instance, enabling cross-layer memory sharing and action execution.
+**Goal:** Aether Grid integrates with [Aether Core](https://github.com/suplab/aether-core) (`suplab/aether-core`) to enrich agent decisions with personal user context.
 
 | Deliverable | Status |
 |---|---|
-| Aether Core adapter module (`aether-core-bridge`) | 📋 |
-| Cross-layer memory sync protocol | 📋 |
-| Personal cognitive context propagation via `X-Aether-Core-Id` header | 📋 |
-| Aether Core action callbacks via agent decisions | 📋 |
-| Integration test harness (Aether Core stub + AetherGrid) | 📋 |
+| `PersonalContextPort` interface in `aether-domain` | ✅ |
+| `AetherCoreHttpAdapter` — fetches personal context from Core's REST API | ✅ |
+| `AetherCoreBridgeAgent` — enriches `AgentInput.context` with memories, preferences, emotional state | ✅ |
+| `aether.core.base-url` configuration property for Core endpoint | ✅ |
+| Integration with `GET /api/v1/personal-context/{tenantId}/{userId}` (Core API) | ✅ |
+
+---
+
+## Phase 17 — Aether Core Scaffold (sister repo bootstrap) 🔄
+
+**Goal:** Bootstrap the `suplab/aether-core` sister repository with its own EEIK governance layer, Maven structure, and domain scaffold.
+
+> For deliverables and status, see [suplab/aether-core](https://github.com/suplab/aether-core).
 
 ---
 
@@ -414,5 +422,9 @@ These are tracked but not scoped for the current roadmap:
 
 ---
 
-*Last updated: Phase 15 — Kubernetes + Helm Production Hardening*
+*Last updated: Phase 16 — Aether Core Integration*
 *See [Progress](progress.md) for live status · [Architecture](architecture.md) for technical detail*
+
+---
+
+> **Aether Core Roadmap:** For the personal cognitive engine roadmap, see [suplab/aether-core/docs/roadmap.md](https://github.com/suplab/aether-core/blob/main/docs/roadmap.md).
