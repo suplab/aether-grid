@@ -31,7 +31,7 @@ public class ApiConfig {
         @Override
         public Optional<Tenant> findByApiKeyHash(String apiKeyHash) {
             var sql = """
-                    SELECT id, name, api_key_hash, status
+                    SELECT id, name, api_key_hash, status, memory_opt_out
                     FROM tenants
                     WHERE api_key_hash = :apiKeyHash
                     """;
@@ -42,7 +42,7 @@ public class ApiConfig {
         @Override
         public Optional<Tenant> findById(TenantId id) {
             var sql = """
-                    SELECT id, name, api_key_hash, status
+                    SELECT id, name, api_key_hash, status, memory_opt_out
                     FROM tenants
                     WHERE id = :id
                     """;
@@ -53,17 +53,19 @@ public class ApiConfig {
         @Override
         public void save(Tenant tenant) {
             var sql = """
-                    INSERT INTO tenants (id, name, api_key_hash, status)
-                    VALUES (:id, :name, :apiKeyHash, :status)
+                    INSERT INTO tenants (id, name, api_key_hash, status, memory_opt_out)
+                    VALUES (:id, :name, :apiKeyHash, :status, :memoryOptOut)
                     ON CONFLICT (id) DO UPDATE SET
                         name = EXCLUDED.name,
-                        status = EXCLUDED.status
+                        status = EXCLUDED.status,
+                        memory_opt_out = EXCLUDED.memory_opt_out
                     """;
             var params = new MapSqlParameterSource()
                     .addValue("id", tenant.id().value())
                     .addValue("name", tenant.name())
                     .addValue("apiKeyHash", tenant.apiKeyHash())
-                    .addValue("status", tenant.status().name());
+                    .addValue("status", tenant.status().name())
+                    .addValue("memoryOptOut", tenant.memoryOptOut());
             jdbc.update(sql, params);
         }
 
@@ -72,7 +74,8 @@ public class ApiConfig {
                         TenantId.of(rs.getString("id")),
                         rs.getString("name"),
                         rs.getString("api_key_hash"),
-                        TenantStatus.valueOf(rs.getString("status"))
+                        TenantStatus.valueOf(rs.getString("status")),
+                        rs.getBoolean("memory_opt_out")
                 );
     }
 }

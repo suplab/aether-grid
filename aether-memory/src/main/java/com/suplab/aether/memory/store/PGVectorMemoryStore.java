@@ -114,6 +114,14 @@ public class PGVectorMemoryStore implements MemoryStore {
         log.debug("Deleted {} memory record(s) id={} tenant={}", deleted, memoryId, tenantId);
     }
 
+    @Override
+    public void deleteAll(TenantId tenantId) {
+        var sql = "DELETE FROM memory_embeddings WHERE tenant_id = :tenantId";
+        var params = new MapSqlParameterSource("tenantId", tenantId.value());
+        int deleted = jdbc.update(sql, params);
+        log.info("GDPR erasure: deleted all {} memory record(s) for tenant={}", deleted, tenantId);
+    }
+
     void decayStrengths(int daysThreshold) {
         var sql = """
                 UPDATE memory_embeddings
