@@ -422,7 +422,7 @@
 
 <!-- NAV -->
 <nav>
-  <div class="nav-brand"><span>Aether</span></div>
+  <div class="nav-brand"><span>Æ</span> Aether <span style="color:var(--muted);font-weight:400;font-size:0.85rem;margin-left:0.3rem">Grid</span></div>
   <div class="nav-links">
     <a href="#ecosystem">Ecosystem</a>
     <a href="#principles">Principles</a>
@@ -431,12 +431,13 @@
     <a href="#agents">Agents</a>
     <a href="#stack">Stack</a>
     <a href="#roadmap">Roadmap</a>
+    <a href="https://github.com/suplab/aether-grid">GitHub</a>
   </div>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-eyebrow">Enterprise AI Agent Governance Mesh — Part of the <a href="https://github.com/suplab/aether-core">Aether Ecosystem</a></div>
+  <div class="hero-eyebrow">Agent Governance Mesh · Part of the <a href="https://github.com/suplab/aether">Æ Aether Ecosystem</a></div>
   <h1>The <span class="accent">Cognitive Fabric</span><br/>for Intelligent Systems</h1>
   <p class="hero-sub">
     A distributed enterprise AI agent governance mesh — smart proxy, policy-as-code, self-improving agents,
@@ -449,7 +450,7 @@
     <span class="badge">Apache Kafka</span>
     <span class="badge">Policy-as-Code</span>
     <span class="badge">Self-Debugging</span>
-    <a href="https://github.com/suplab/aether-core" class="badge blue" style="text-decoration:none">Sister Repo: suplab/aether-core</a>
+    <a href="https://github.com/suplab/aether" class="badge blue" style="text-decoration:none">Æ Ecosystem Hub</a>
   </div>
 </section>
 
@@ -457,31 +458,53 @@
 
 <!-- ECOSYSTEM LAYERS -->
 <section class="section" id="ecosystem">
-  <div class="section-label">Architecture</div>
-  <h2>The Three Layers</h2>
+  <div class="section-label">Ecosystem Architecture</div>
+  <h2>The Aether Ecosystem</h2>
   <p class="section-intro">
-    Aether is not a single product. It is a layered cognitive framework where each tier builds on the one above it.
+    Aether is not a single product. It is a layered cognitive ecosystem — philosophy, methodology, cognitive engine, and agent mesh —
+    each layer building on the one beneath it.
   </p>
 
   <div class="layers">
     <div class="layer">
       <div class="layer-meta">
-        <div class="layer-number">Layer 01</div>
-        <div class="layer-name l1">Aether</div>
-        <div class="layer-role">Philosophy &amp; Vision</div>
+        <div class="layer-number">Foundation</div>
+        <div class="layer-name l1">Æ Aether</div>
+        <div class="layer-role">Philosophy &amp; Hub</div>
       </div>
       <div>
         <p class="layer-desc">
-          Historically, Aether was the invisible medium connecting everything in the universe.
-          Here, it represents the cognitive fabric that connects humans, memories, emotions,
-          knowledge, and intelligent systems. Aether is not an AI assistant — it is a
-          <em>second mind</em>, a reasoning companion, a digital consciousness interface.
+          Vision, architecture standards, and the ecosystem index. Historically, Aether was the invisible medium connecting everything in the universe —
+          here it is the cognitive fabric connecting humans, memories, knowledge, and intelligent systems.
+          Every other layer is governed by Aether's standards.
         </p>
         <div class="layer-components">
           <span class="chip">Human + AI Symbiosis</span>
           <span class="chip">Cognitive Computing Vision</span>
+          <span class="chip">Ecosystem Standards</span>
           <span class="chip">Persistent Context</span>
-          <span class="chip">Emotional Intelligence</span>
+          <a href="https://github.com/suplab/aether" class="chip" style="color:var(--accent4);text-decoration:none">suplab/aether →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-meta">
+        <div class="layer-number">Methodology</div>
+        <div class="layer-name l1">Aether IEL</div>
+        <div class="layer-role">Intelligence Engineering Lifecycle</div>
+      </div>
+      <div>
+        <p class="layer-desc">
+          The 12-phase methodology for engineering, operating, governing, and evolving persistent intelligence systems.
+          Every Aether component is designed and governed using AIEL — including Aether Grid.
+        </p>
+        <div class="layer-components">
+          <span class="chip">12 AIEL Phases</span>
+          <span class="chip">5-Level Maturity Model</span>
+          <span class="chip">Agent Contracts</span>
+          <span class="chip">Governance Controls</span>
+          <a href="https://github.com/suplab/aether-iel" class="chip" style="color:var(--accent4);text-decoration:none">suplab/aether-iel →</a>
         </div>
       </div>
     </div>
@@ -494,9 +517,17 @@
       </div>
       <div>
         <p class="layer-desc">
-          Personal cognitive engine — individual memory, reasoning, and emotional context.
-          &rarr; <a href="https://github.com/suplab/aether-core">suplab/aether-core</a>
+          The brain. Personal cognitive engine — individual memory (EPISODIC, SEMANTIC, PROCEDURAL, EMOTIONAL),
+          cognitive sessions, GDPR compliance, and memory decay/reinforcement. L4 Cognitive Platform on the IMM.
         </p>
+        <div class="layer-components">
+          <span class="chip">Personal Memory</span>
+          <span class="chip">Cognitive Sessions</span>
+          <span class="chip">pgvector + Ollama</span>
+          <span class="chip">GDPR Article 17</span>
+          <span class="chip">Memory Decay</span>
+          <a href="https://github.com/suplab/aether-core" class="chip" style="color:var(--accent4);text-decoration:none">suplab/aether-core →</a>
+        </div>
       </div>
     </div>
 
@@ -504,13 +535,12 @@
       <div class="layer-meta">
         <div class="layer-number">Layer 03</div>
         <div class="layer-name l3">Aether Grid</div>
-        <div class="layer-role">Distributed Intelligence · This Repo</div>
+        <div class="layer-role">Agent Governance Mesh · This Repo</div>
       </div>
       <div>
         <p class="layer-desc">
-          If Aether Core is the mind, Aether Grid is the nervous system.
-          A cognitive mesh of specialized agents that share memory, coordinate reasoning,
-          govern API interactions, and self-debug — at enterprise scale, across any tenant.
+          The nervous system. A distributed agent governance mesh — multi-agent orchestration, policy-as-code, shared semantic memory,
+          and self-improving agents at enterprise scale across any tenant.
         </p>
         <div class="layer-components">
           <span class="chip">Multi-Agent Orchestration</span>
@@ -518,11 +548,9 @@
           <span class="chip">API Governance</span>
           <span class="chip">Policy-as-Code</span>
           <span class="chip">Temporal Prediction</span>
-          <span class="chip">Self-Debugging</span>
           <span class="chip">Self-Improving Agents</span>
           <span class="chip">Multi-Tenancy</span>
-          <span class="chip">Event-Driven</span>
-          <span class="chip">Operator Dashboard</span>
+          <span class="chip">Kafka Event-Driven</span>
         </div>
       </div>
     </div>
@@ -533,9 +561,9 @@
 
 <!-- PRINCIPLES -->
 <section class="section" id="principles">
-  <div class="section-label">Philosophy</div>
+  <div class="section-label">Aether Philosophy</div>
   <h2>Core Principles</h2>
-  <p class="section-intro">Four principles that govern every design decision across the ecosystem.</p>
+  <p class="section-intro">Four principles that govern every design decision across the Aether ecosystem. Defined in <a href="https://github.com/suplab/aether">suplab/aether</a> and applied here.</p>
 
   <div class="principles-grid">
     <div class="principle-card">
@@ -572,9 +600,9 @@
 
 <!-- AETHER CORE -->
 <section class="section" id="core">
-  <div class="section-label">Layer 02</div>
-  <h2>Aether Core</h2>
-  <p class="section-intro">The personal cognitive engine — a continuously evolving model of an individual's mind.</p>
+  <div class="section-label">Layer 02 · <a href="https://github.com/suplab/aether-core" style="color:var(--accent)">suplab/aether-core</a></div>
+  <h2>Aether Core — Personal Cognitive Engine</h2>
+  <p class="section-intro">The brain of the ecosystem. A continuously evolving personal cognitive engine — persistent memory, cognitive sessions, and GDPR-compliant data management. IMM Level 4: Cognitive Platform.</p>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
     <div>
@@ -671,9 +699,9 @@
 
 <!-- AETHER GRID ARCHITECTURE -->
 <section class="section" id="grid">
-  <div class="section-label">Layer 03</div>
-  <h2>Aether Grid</h2>
-  <p class="section-intro">The distributed intelligence layer. A cognitive mesh where agents share memory, govern APIs, and collectively reason.</p>
+  <div class="section-label">Layer 03 · This Repo</div>
+  <h2>Aether Grid — Agent Governance Mesh</h2>
+  <p class="section-intro">The nervous system of the ecosystem. A distributed agent governance mesh — multi-agent orchestration, policy-as-code, shared semantic memory, and self-improving agents at enterprise scale.</p>
 
   <div class="arch-diagram">                         <span class="hl">User / Tenant</span>
                                │
@@ -717,7 +745,7 @@
 
 <!-- AGENTS -->
 <section class="section" id="agents">
-  <div class="section-label">Agent Subsystem</div>
+  <div class="section-label">AIEL Phase 5 · Agent Engineering</div>
   <h2>Specialized Agents</h2>
   <p class="section-intro">
     All agents implement a common SPI and are discovered automatically via the AgentRegistry.
@@ -808,7 +836,7 @@
 
 <!-- TECH STACK -->
 <section class="section" id="stack">
-  <div class="section-label">Technology</div>
+  <div class="section-label">Technology Stack</div>
   <h2>Stack</h2>
   <p class="section-intro">Local-first, cloud-ready. Runs entirely on-premise with Ollama; scales to Kubernetes on any cloud.</p>
 
@@ -844,7 +872,7 @@
 
 <!-- ROADMAP -->
 <section class="section" id="roadmap">
-  <div class="section-label">Delivery</div>
+  <div class="section-label">Development Roadmap</div>
   <h2>Roadmap</h2>
   <p class="section-intro">Small, logical, committable chunks. Every phase updates docs, README, and this page in sync.</p>
 
@@ -989,7 +1017,7 @@
       <div class="roadmap-dot active">►</div>
       <div class="roadmap-content">
         <h3>Phase 17 — Aether Core Scaffold</h3>
-        <p>Sister repo bootstrap — see <a href="https://github.com/suplab/aether-core">suplab/aether-core</a></p>
+        <p>Ecosystem bootstrap — see <a href="https://github.com/suplab/aether">suplab/aether</a> · <a href="https://github.com/suplab/aether-iel">suplab/aether-iel</a> · <a href="https://github.com/suplab/aether-core">suplab/aether-core</a></p>
         <span class="roadmap-status active">In Progress</span>
       </div>
     </div>
@@ -999,20 +1027,31 @@
 <!-- FOOTER -->
 <footer>
   <div>
-    <strong>Aether Grid</strong> · Enterprise AI Agent Governance Mesh · All 16 Phases Complete — Production Ready
-    <br/>
-    <span style="color:var(--muted)">
-      By <strong>Suplab</strong> —
-      <a href="https://github.com/suplab/aether-grid">github.com/suplab/aether-grid</a>
-      &nbsp;·&nbsp;
-      Sister repo: <a href="https://github.com/suplab/aether-core">suplab/aether-core</a>
-    </span>
+    <div style="font-weight:700;font-size:1rem;margin-bottom:0.4rem"><span style="color:var(--accent)">Æ</span> Aether Grid</div>
+    <div style="font-size:0.8rem;color:var(--muted)">Agent Governance Mesh · All 16 Phases Complete — Production Ready</div>
   </div>
-  <div class="bootstrap-promo">
-    Scaffolded &amp; governed by <a href="https://github.com/suplab/eeik-bootstrap">eeik-bootstrap</a>
-    — the AI-native enterprise engineering operating system.
-    <br/>
-    <span style="color:var(--muted)">19 specialist agents · 5 slash commands · persistent memory · governance from day one.</span>
+  <div>
+    <div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem">Ecosystem</div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem">
+      <a href="https://github.com/suplab/aether" style="font-size:0.82rem;color:var(--muted)">Æ Aether — Hub &amp; Philosophy</a>
+      <a href="https://github.com/suplab/aether-iel" style="font-size:0.82rem;color:var(--muted)">Aether IEL — Methodology</a>
+      <a href="https://github.com/suplab/aether-core" style="font-size:0.82rem;color:var(--muted)">Aether Core — Cognitive Engine</a>
+      <a href="https://github.com/suplab/aether-grid" style="font-size:0.82rem;color:var(--muted)">Aether Grid — Agent Mesh</a>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem">Repository</div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem">
+      <a href="https://github.com/suplab/aether-grid" style="font-size:0.82rem;color:var(--muted)">github.com/suplab/aether-grid</a>
+      <a href="https://github.com/suplab/aether-grid/blob/main/docs/roadmap.md" style="font-size:0.82rem;color:var(--muted)">Roadmap</a>
+      <a href="https://github.com/suplab/aether-grid/blob/main/docs/architecture.md" style="font-size:0.82rem;color:var(--muted)">Architecture</a>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:0.75rem;color:var(--muted)">
+      Bootstrapped with EEIK<br>
+      Governed by <a href="https://github.com/suplab/aether">Aether Standards</a>
+    </div>
   </div>
 </footer>
 
