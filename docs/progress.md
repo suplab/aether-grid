@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** All 14 phases complete. Next: Phase 15 — Kubernetes + Helm production hardening.
+**Active Phase:** All 15 phases complete. Next: Phase 16 — Aether Core Integration.
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-15
 
@@ -31,6 +31,7 @@
 | 12 | CI/CD + Kubernetes | ✅ Complete | 1 |
 | 13 | Self-Improving Agents | ✅ Complete | 1 |
 | 14 | Dashboard / Control Center | ✅ Complete | 1 |
+| 15 | Kubernetes + Helm Production Hardening | ✅ Complete | 1 |
 
 ---
 
@@ -488,6 +489,64 @@
 | `aether-api/.../security/SecurityConfig.java` | Updated — `/dashboard/**`, `/*.html` permitted without auth |
 | `aether-agents/.../registry/AgentRegistry.java` | Updated — `registeredTypes()` method |
 | `aether-api/src/main/resources/static/dashboard.html` | Created — self-contained SPA |
+
+---
+
+## Phase 15 — Kubernetes + Helm Production Hardening ✅
+
+**Commit:** `build(infra): add Helm chart, multi-stage Dockerfiles, and container CI/CD workflows`
+
+### What was done
+
+**Helm chart (`aether-infra/helm/aether-grid/`, 20 files):**
+- `values.yaml` — cloud-agnostic defaults: GHCR images, nginx ingress controller, 2 replicas per service
+- `values-aws.yaml` — EKS overrides: AWS Load Balancer Controller (ALB), IRSA `serviceAccount` annotations, ECR registry, ExternalDNS integration, ServiceMonitor enabled
+- `values-openshift.yaml` — OpenShift overrides: `openshift.enabled: true`, Quay.io registry, Ingress disabled in favour of OpenShift Route resources (edge TLS termination), ServiceMonitor enabled
+- Templates: `namespace.yaml`, `_helpers.tpl`, `NOTES.txt`
+- `aether-api` templates: Deployment, Service, HPA, ConfigMap, ServiceAccount
+- `aether-proxy` templates: Deployment, Service, HPA, ConfigMap, ServiceAccount
+- `ingress.yaml` — rendered when `openshift.enabled` is false (vanilla K8s and EKS)
+- `route.yaml` — rendered when `openshift.enabled` is true (OpenShift edge TLS Route)
+- `servicemonitor.yaml` — Prometheus Operator ServiceMonitor for both services
+- OpenShift-aware `securityContext`: `runAsUser` and `fsGroup` are omitted when `openshift.enabled` to respect SCCs
+- `startupProbe` added to both Deployments to guard slow cold-start under resource pressure
+- `checksum/config` rolling annotation on Deployments triggers pod restarts on ConfigMap changes
+- `automountServiceAccountToken: false` on all ServiceAccounts (least-privilege)
+
+**Dockerfiles (`aether-api/Dockerfile`, `aether-proxy/Dockerfile`):**
+- Multi-stage build: `eclipse-temurin:21-jdk-noble` build stage → `eclipse-temurin:21-jre-noble` runtime stage
+- `ENTRYPOINT` includes `--enable-preview` (required for Java 21 preview features in Spring Boot)
+- JVM flags: `-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError`
+- Non-root user: uid/gid 1000 (created in image, not inherited from base)
+- `HEALTHCHECK` via `/actuator/health/liveness` (Docker-native health signalling)
+
+**`.dockerignore`** at repo root — excludes `.git/`, `target/`, `*.md`, `docs/`, `aether-infra/` from build context.
+
+**GitHub Actions workflows:**
+- `.github/workflows/docker-build.yml` — OIDC authentication (no static secrets), build matrix `[aether-api, aether-proxy]`, multi-platform `linux/amd64+arm64` via `docker/build-push-action`, pushes to GHCR on `main` and `release/**` branches; SHA-pinned action references
+- `.github/workflows/helm-release.yml` — `helm lint` against all three values files (`values.yaml`, `values-aws.yaml`, `values-openshift.yaml`) + `helm template` dry-run; on `release/**` branches pushes the chart as an OCI artifact to `ghcr.io/suplab/helm`
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-api/Dockerfile` | Created — multi-stage, non-root, JVM container flags, liveness HEALTHCHECK |
+| `aether-proxy/Dockerfile` | Created — same pattern as aether-api |
+| `.dockerignore` | Created — repo-root build context exclusions |
+| `aether-infra/helm/aether-grid/values.yaml` | Created — cloud-agnostic defaults |
+| `aether-infra/helm/aether-grid/values-aws.yaml` | Created — EKS/ALB/IRSA/ECR overrides |
+| `aether-infra/helm/aether-grid/values-openshift.yaml` | Created — OCP/Quay/Route overrides |
+| `aether-infra/helm/aether-grid/templates/_helpers.tpl` | Created — shared template helpers |
+| `aether-infra/helm/aether-grid/templates/NOTES.txt` | Created — post-install operator instructions |
+| `aether-infra/helm/aether-grid/templates/namespace.yaml` | Created |
+| `aether-infra/helm/aether-grid/templates/aether-api/` | Created — deployment, service, hpa, configmap, serviceaccount (5 files) |
+| `aether-infra/helm/aether-grid/templates/aether-proxy/` | Created — deployment, service, hpa, configmap, serviceaccount (5 files) |
+| `aether-infra/helm/aether-grid/templates/ingress.yaml` | Created — conditional on `openshift.enabled: false` |
+| `aether-infra/helm/aether-grid/templates/route.yaml` | Created — conditional on `openshift.enabled: true` |
+| `aether-infra/helm/aether-grid/templates/servicemonitor.yaml` | Created |
+| `.github/workflows/docker-build.yml` | Created — OIDC, matrix, multi-arch, GHCR push |
+| `.github/workflows/helm-release.yml` | Created — lint + dry-run + OCI push |
+| `docs/progress.md` | Updated — Phase 15 marked complete |
 
 ---
 

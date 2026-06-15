@@ -14,7 +14,7 @@
 
 This repository implements **Aether Grid** — the distributed intelligence layer — as a **Maven multi-module Spring Boot 3.x / Java 21** application. It sits as a smart proxy and governance layer in front of any API ecosystem.
 
-**Current status:** Phases 0–14 complete. Active phase: Phase 15 — Kubernetes + Helm production hardening.
+**Current status:** Phases 0–15 complete. Active phase: Phase 16 — Aether Core Integration.
 
 **Two runnable applications:**
 - `aether-proxy` — Data Plane (port 8080): Spring Cloud Gateway intercepting all API traffic
