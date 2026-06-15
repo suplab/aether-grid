@@ -1,0 +1,10 @@
+.git
+.github
+**/target
+**/node_modules
+**/.DS_Store
+**/Dockerfile
+docs
+*.md
+aether-infra/k8s
+aether-infra/helm
