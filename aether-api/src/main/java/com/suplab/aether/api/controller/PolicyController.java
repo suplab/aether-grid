@@ -3,6 +3,7 @@ package com.suplab.aether.api.controller;
 import com.suplab.aether.api.dto.PolicyRequest;
 import com.suplab.aether.core.domain.TenantId;
 import com.suplab.aether.core.ports.PolicyRepository;
+import com.suplab.aether.policy.audit.AuditLogService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,11 @@ public class PolicyController {
     private static final Logger log = LoggerFactory.getLogger(PolicyController.class);
 
     private final PolicyRepository policyRepository;
+    private final AuditLogService auditLogService;
 
-    public PolicyController(PolicyRepository policyRepository) {
+    public PolicyController(PolicyRepository policyRepository, AuditLogService auditLogService) {
         this.policyRepository = policyRepository;
+        this.auditLogService = auditLogService;
     }
 
     @PostMapping
@@ -33,6 +36,8 @@ public class PolicyController {
         var policyId = UUID.randomUUID();
         policyRepository.savePolicy(tid, policyId, request.yamlContent(), request.changedBy());
         log.info("Created policy id={} tenant={} by={}", policyId, tenantId, request.changedBy());
+        auditLogService.log(tenantId.toString(), "POLICY", policyId.toString(),
+                "POLICY_CREATED", request.changedBy(), Map.of("policyId", policyId.toString(), "status", "DRAFT"));
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "policyId", policyId.toString(),
                 "tenantId", tenantId.toString(),
@@ -47,6 +52,8 @@ public class PolicyController {
         var tid = TenantId.of(tenantId.toString());
         policyRepository.activatePolicy(tid, policyId);
         log.info("Activated policy id={} tenant={}", policyId, tenantId);
+        auditLogService.log(tenantId.toString(), "POLICY", policyId.toString(),
+                "POLICY_ACTIVATED", "system", Map.of("policyId", policyId.toString(), "status", "ACTIVE"));
         return ResponseEntity.ok(Map.of(
                 "policyId", policyId.toString(),
                 "status", "ACTIVE"
@@ -59,6 +66,9 @@ public class PolicyController {
             @PathVariable UUID policyId) {
         var tid = TenantId.of(tenantId.toString());
         policyRepository.archivePolicy(tid, policyId);
+        log.info("Archived policy id={} tenant={}", policyId, tenantId);
+        auditLogService.log(tenantId.toString(), "POLICY", policyId.toString(),
+                "POLICY_ARCHIVED", "system", Map.of("policyId", policyId.toString(), "status", "ARCHIVED"));
         return ResponseEntity.ok(Map.of(
                 "policyId", policyId.toString(),
                 "status", "ARCHIVED"

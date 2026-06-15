@@ -2,7 +2,9 @@ package com.suplab.aether.memory.config;
 
 import com.suplab.aether.core.ports.EmbeddingPort;
 import com.suplab.aether.core.ports.MemoryStore;
+import com.suplab.aether.core.ports.TenantRepository;
 import com.suplab.aether.memory.consumer.ApiCallMemoryConsumer;
+import com.suplab.aether.policy.gdpr.GdprRedactionService;
 import com.suplab.aether.memory.embedding.OllamaEmbeddingService;
 import com.suplab.aether.memory.lifecycle.MemoryLifecycleService;
 import com.suplab.aether.memory.store.PGVectorMemoryStore;
@@ -40,7 +42,9 @@ public class MemoryConfig {
     }
 
     @Bean
-    public ApiCallMemoryConsumer apiCallMemoryConsumer(EmbeddingPort embeddingPort, MemoryStore memoryStore) {
-        return new ApiCallMemoryConsumer(embeddingPort, memoryStore);
+    public ApiCallMemoryConsumer apiCallMemoryConsumer(EmbeddingPort embeddingPort, MemoryStore memoryStore,
+                                                        TenantRepository tenantRepository,
+                                                        GdprRedactionService gdprRedactionService) {
+        return new ApiCallMemoryConsumer(embeddingPort, memoryStore, tenantRepository, gdprRedactionService);
     }
 }

@@ -7,8 +7,10 @@ import com.suplab.aether.agents.orchestrator.AgentOrchestrator;
 import com.suplab.aether.agents.reflection.ReflectionAgent;
 import com.suplab.aether.agents.registry.AgentRegistry;
 import com.suplab.aether.agents.retry.RetryAgent;
+import com.suplab.aether.agents.selfimproving.SelfImprovingAgent;
 import com.suplab.aether.agents.spi.Agent;
 import com.suplab.aether.agents.temporal.TemporalPredictionAgent;
+import com.suplab.aether.core.ports.AgentFeedbackPort;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,6 +45,11 @@ public class AgentsConfig {
     @Bean
     public ReflectionAgent reflectionAgent(LlmClient llmClient) {
         return new ReflectionAgent(llmClient);
+    }
+
+    @Bean
+    public SelfImprovingAgent selfImprovingAgent(LlmClient llmClient, AgentFeedbackPort feedbackPort) {
+        return new SelfImprovingAgent(llmClient, feedbackPort);
     }
 
     @Bean

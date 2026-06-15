@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Active Phase:** Phase 11 — Multi-Tenancy + Compliance
+**Active Phase:** All 14 phases complete. Next: Phase 15 — Kubernetes + Helm production hardening.
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-15
 
 ---
 
@@ -27,8 +27,10 @@
 | 8 | Policy Engine | ✅ Complete | 1 |
 | 9 | Admin REST API + Observability | ✅ Complete | 1 |
 | 10 | Advanced Agents + Observability | ✅ Complete | 1 |
-| 11 | Multi-Tenancy + Compliance | 📋 Planned | — |
-| 12 | CI/CD + Kubernetes | 📋 Planned | — |
+| 11 | Multi-Tenancy + Compliance | ✅ Complete | 1 |
+| 12 | CI/CD + Kubernetes | ✅ Complete | 1 |
+| 13 | Self-Improving Agents | ✅ Complete | 1 |
+| 14 | Dashboard / Control Center | ✅ Complete | 1 |
 
 ---
 
@@ -311,15 +313,181 @@
 
 ---
 
-## Phase 11 — Multi-Tenancy + Compliance 📋
+## Phase 11 — Multi-Tenancy + Compliance ✅
 
-_Not yet started._
+**Commit:** `feat(compliance): GDPR memory opt-out, right-to-erasure, RLS, and audit logging`
+
+### What was done
+
+- `V010__tenant_gdpr_preferences.sql` — `memory_opt_out BOOLEAN NOT NULL DEFAULT FALSE` and `data_retention_days INT NOT NULL DEFAULT 365` added to `tenants` table
+- `V011__row_level_security.sql` — PostgreSQL RLS enabled on `memory_embeddings`, `api_calls`, `policies`, `agent_decisions`, `audit_log`; `FORCE ROW LEVEL SECURITY` on `tenants`; all policies use `current_setting('app.tenant_id', true)` as the row filter
+- `Tenant` domain — `memoryOptOut` field, `optOutOfMemory()`, `optIntoMemory()`, `reconstitute()` 5-arg overload (all already present from prior phase)
+- `MemoryStore` port — `deleteAll(TenantId)` (already present from prior phase)
+- `PGVectorMemoryStore` — `deleteAll()` implemented with tenant-scoped `DELETE` (already present)
+- `ApiCallMemoryConsumer` — tenant opt-out check (skip if `memoryOptOut=true` or tenant not found) and GDPR redaction before embedding (already wired)
+- `JdbcTenantRepository` (proxy) — `memory_opt_out` added to SELECT and UPSERT SQL; `TENANT_MAPPER` calls 5-arg `reconstitute()`
+- `AuditLogService` — `log(TenantId, action, detail, actor)` convenience overload; `findByTenant(TenantId, int limit)` query returning `List<Map<String, Object>>`; SQL corrected to use actual schema column names (`occurred_at`, not `created_at`)
+- `TenantResponse` record — `memoryOptOut` field added; `from()` maps `tenant.memoryOptOut()`
+- `TenantController` — `AuditLogService` and `MemoryStore` added as constructor parameters; `PUT /{id}/gdpr/memory-opt-out` (opt out), `DELETE /{id}/gdpr/memory-opt-out` (opt in), `DELETE /{id}/memories` (right-to-erasure); audit events logged for all lifecycle transitions
+- `PolicyController` — `AuditLogService` added as constructor parameter; `POLICY_CREATED`, `POLICY_ACTIVATED`, `POLICY_ARCHIVED` audit events
+- `AuditController` — `GET /api/v1/tenants/{tenantId}/audit?limit=50` — returns paged audit log for a tenant
+- Tests: `ApiCallMemoryConsumerTest` (12 tests — added opt-out skip, unknown tenant skip, redaction verification); `TenantControllerTest` (11 tests — added opt-out, opt-in, erasure, 404-on-erasure); `AuditControllerTest` (3 tests — list, empty, limit param); `PolicyControllerTest` updated with `AuditLogService` mock bean
+
+### Verification result
+
+`mvn clean test -pl aether-memory` — 12 tests, 0 failures  
+`mvn clean test -pl aether-api` — 24 tests, 0 failures  
+`mvn clean test -pl aether-proxy` — 5 tests, 0 failures  
+`mvn clean test -pl aether-policy` — 14 tests, 0 failures
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-infra/db/migration/V010__tenant_gdpr_preferences.sql` | Created — `memory_opt_out`, `data_retention_days` columns |
+| `aether-infra/db/migration/V011__row_level_security.sql` | Created — RLS policies on all tenant-scoped tables |
+| `aether-proxy/.../repository/JdbcTenantRepository.java` | Updated — `memory_opt_out` in SQL + 5-arg `reconstitute()` |
+| `aether-policy/.../audit/AuditLogService.java` | Updated — `log(TenantId,…)` overload + `findByTenant()` |
+| `aether-api/.../dto/TenantResponse.java` | Updated — `memoryOptOut` field |
+| `aether-api/.../controller/TenantController.java` | Updated — GDPR endpoints + audit logging |
+| `aether-api/.../controller/PolicyController.java` | Updated — `AuditLogService` + audit events |
+| `aether-api/.../controller/AuditController.java` | Created — audit query endpoint |
+| `aether-memory/.../consumer/ApiCallMemoryConsumerTest.java` | Updated — 4-arg constructor + 3 new tests |
+| `aether-api/src/test/.../TenantControllerTest.java` | Updated — `AuditLogService`/`MemoryStore` mocks + 4 new tests |
+| `aether-api/src/test/.../PolicyControllerTest.java` | Updated — `AuditLogService` mock bean |
+| `aether-api/src/test/.../AuditControllerTest.java` | Created — 3 tests |
 
 ---
 
-## Phase 12 — CI/CD + Kubernetes 📋
+## Phase 12 — CI/CD + Kubernetes ✅
 
-_Not yet started._
+**Commit:** `build(ci): add GitHub Actions CI/CD pipelines and Kubernetes manifests`
+
+### What was done
+
+**GitHub Actions workflows:**
+- `.github/workflows/ci.yml` — Runs on every push and PR to `main`. Single `build` job (20-minute timeout) with `permissions: contents: read`. Spins up a `pgvector/pgvector:pg16` service container for integration tests. Runs `mvn --no-transfer-progress verify -pl !aether-infra` with Temurin 21 and Maven cache. Uploads surefire test reports and JaCoCo coverage reports as artifacts (7-day retention). All action versions pinned to full SHA.
+- `.github/workflows/quality-gate.yml` — Runs on PRs to `main` only. Two parallel jobs: `checkstyle` (15-minute timeout) runs `mvn checkstyle:check` against Google Checks; `dependency-audit` (30-minute timeout) runs OWASP Dependency Check with `failBuildOnCVSS=9` and uploads the HTML report as an artifact (14-day retention). Both jobs use SHA-pinned actions and `permissions: contents: read`.
+
+**Supporting files:**
+- `.github/owasp-suppressions.xml` — Empty suppressions file for accepted false positives.
+- `pom.xml` — Checkstyle plugin (`maven-checkstyle-plugin:3.6.0`) already configured in `pluginManagement` with Google Checks and `violationSeverity: warning`.
+
+**Kubernetes manifests (`aether-infra/k8s/`):**
+- `namespace.yaml` — `aether-grid` namespace with `app.kubernetes.io/part-of` label.
+- `aether-api/deployment.yaml` — 2 replicas, `ghcr.io/suplab/aether-api:latest`, port 8081, `cpu: 250m / memory: 512Mi` requests, `cpu: 1 / memory: 1Gi` limits. Liveness probe on `/actuator/health/liveness` (initialDelay 60s), readiness on `/actuator/health/readiness` (initialDelay 30s). `runAsNonRoot: true`, `runAsUser: 1000`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities: drop: ALL`. Secrets via `secretKeyRef` (postgres-url, postgres-user, postgres-password); non-secret config via `configMapKeyRef`. Zone topology spread constraint. `/tmp` emptyDir volume for JVM temp writes.
+- `aether-api/service.yaml` — ClusterIP on port 8081.
+- `aether-api/hpa.yaml` — `autoscaling/v2`, minReplicas 2, maxReplicas 8, CPU target 70%.
+- `aether-api/configmap.yaml` — `kafka-bootstrap-servers`, `jwt-issuer`, `llm-provider`, `spring-profiles-active`.
+- `aether-proxy/deployment.yaml` — Same security posture as api; port 8080, `ghcr.io/suplab/aether-proxy:latest`. Additional env vars: `REDIS_URL` from secret, `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`, `OUTBOX_RELAY_INTERVAL_MS` from configmap.
+- `aether-proxy/service.yaml` — ClusterIP on port 8080.
+- `aether-proxy/hpa.yaml` — minReplicas 2, maxReplicas 16 (higher ceiling for data-plane traffic load).
+- `aether-proxy/configmap.yaml` — Kafka bootstrap, rate-limit settings, outbox relay interval, spring profile.
+- `secrets-template.yaml` — Commented template (no actual values) for `aether-api-secrets` and `aether-proxy-secrets`; instructs operators to use External Secrets Operator or `kubectl create secret`.
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `.github/workflows/ci.yml` | Created — build + test + artifact upload |
+| `.github/workflows/quality-gate.yml` | Created — Checkstyle + OWASP dependency check |
+| `.github/owasp-suppressions.xml` | Created — empty suppressions template |
+| `aether-infra/k8s/namespace.yaml` | Created |
+| `aether-infra/k8s/aether-api/deployment.yaml` | Created |
+| `aether-infra/k8s/aether-api/service.yaml` | Created |
+| `aether-infra/k8s/aether-api/hpa.yaml` | Created |
+| `aether-infra/k8s/aether-api/configmap.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/deployment.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/service.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/hpa.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/configmap.yaml` | Created |
+| `aether-infra/k8s/secrets-template.yaml` | Created |
+| `docs/progress.md` | Updated — Phase 12 marked complete |
+
+---
+
+## Phase 13 — Self-Improving Agents ✅
+
+**Commit:** `feat(agents): add feedback loop, self-improving agent, and weekly learning service`
+
+### What was done
+
+**`aether-core` — new domain types:**
+- `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN`
+- `AgentFeedback` record: `id`, `tenantId`, `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`, `recordedAt`
+- `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()`
+
+**`aether-agents` — new agent:**
+- `SelfImprovingAgent` — meta-agent that analyses feedback history and generates improvement suggestions via LLM; `SELF_IMPROVEMENT` capability added to `AgentCapability` enum
+
+**`aether-api` — new service layer and API:**
+- `AgentLearningService` — `@Scheduled` weekly review across all tenants; queries feedback history, invokes `SelfImprovingAgent`, persists suggestions to audit log
+- `LearningConfig` — `@Configuration` wiring for the learning service
+- `AgentController` — `POST /api/v1/tenants/{tenantId}/agents/feedback` (record a decision outcome); `GET /api/v1/tenants/{tenantId}/agents/performance` (performance stats by agent type)
+- `FeedbackRequest` DTO — carries `agentType`, `decisionId`, `originalDecision`, `originalConfidence`, `outcome`, `outcomeDetail`
+- `JdbcAgentFeedbackRepository` — registered in `ApiConfig`; `NamedParameterJdbcTemplate` adapter implementing `AgentFeedbackPort`
+
+**`aether-infra` — new migration:**
+- `V012__agent_feedback.sql` — `agent_feedback` table: `id UUID PK`, `tenant_id`, `agent_type`, `decision_id`, `original_decision`, `original_confidence`, `outcome`, `outcome_detail`, `recorded_at`; RLS policy mirrors existing tenant-scoped tables; index on `(tenant_id, agent_type)` for performance stats query
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-core/.../domain/DecisionOutcome.java` | Created — enum |
+| `aether-core/.../domain/AgentFeedback.java` | Created — record |
+| `aether-core/.../ports/AgentFeedbackPort.java` | Created — port interface |
+| `aether-agents/.../spi/AgentCapability.java` | Updated — added `SELF_IMPROVEMENT` |
+| `aether-agents/.../selfimproving/SelfImprovingAgent.java` | Created |
+| `aether-api/.../service/AgentLearningService.java` | Created |
+| `aether-api/.../config/LearningConfig.java` | Created |
+| `aether-api/.../controller/AgentController.java` | Created |
+| `aether-api/.../dto/FeedbackRequest.java` | Created |
+| `aether-api/.../config/ApiConfig.java` | Updated — `JdbcAgentFeedbackRepository` registration |
+| `aether-infra/db/migration/V012__agent_feedback.sql` | Created |
+
+---
+
+## Phase 14 — Dashboard / Control Center ✅
+
+**Commit:** `feat(api): add dashboard stats service, SSE stream, and self-contained dashboard SPA`
+
+### What was done
+
+**`aether-api` — new service:**
+- `DashboardStatsService` — queries `tenants`, `memory_embeddings`, `policies`, `agent_decisions`, `audit_log` tables to return: system-wide stat snapshot, recent decisions list, memory type breakdown (type + avg strength), agent decision breakdown (agent + decision counts for last 7 days), list of registered agent types from `AgentRegistry`
+
+**`aether-api` — new controller:**
+- `DashboardController` at `/dashboard/**`:
+  - `GET /dashboard/stats` — system stats snapshot (tenant count, total memories, active policies, decisions last 7 days, audit events)
+  - `GET /dashboard/decisions?limit=20` — recent agent decisions with agent type, decision, confidence, rationale, decided_at
+  - `GET /dashboard/memory-breakdown` — memory type counts and average strength per type
+  - `GET /dashboard/agent-breakdown` — per-agent decision counts for the last 7 days
+  - `GET /dashboard/agents` — registered agent types via `AgentRegistry.registeredTypes()`
+  - `GET /dashboard/stream` — SSE endpoint returning a single snapshot; client reconnects every 10 seconds for live updates
+
+**`aether-api` — new static resource:**
+- `aether-api/src/main/resources/static/dashboard.html` — self-contained dark-theme SPA with:
+  - Stat cards (tenant count, memory count, active policies, recent decisions) with 10-second auto-refresh
+  - Agent registry table showing all registered agent types
+  - Memory type breakdown table (type, count, avg strength)
+  - Agent decision breakdown table (agent, decision counts, last 7 days)
+  - Scrollable recent decisions table (agent, decision, confidence, rationale)
+  - SSE live panel consuming `/dashboard/stream`
+
+**Updated components:**
+- `SecurityConfig` — `/dashboard/**` and `/*.html` added to `permitAll()` matchers (no auth required for dashboard)
+- `AgentRegistry` — `registeredTypes()` method added, returning `List<String>` of all registered agent type names
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `aether-api/.../service/DashboardStatsService.java` | Created |
+| `aether-api/.../controller/DashboardController.java` | Created |
+| `aether-api/.../security/SecurityConfig.java` | Updated — `/dashboard/**`, `/*.html` permitted without auth |
+| `aether-agents/.../registry/AgentRegistry.java` | Updated — `registeredTypes()` method |
+| `aether-api/src/main/resources/static/dashboard.html` | Created — self-contained SPA |
 
 ---
 

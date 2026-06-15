@@ -16,4 +16,6 @@ public interface MemoryStore {
     List<MemoryRecord> findByType(TenantId tenantId, MemoryType type, int limit);
 
     void delete(TenantId tenantId, UUID memoryId);
+
+    void deleteAll(TenantId tenantId);
 }

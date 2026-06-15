@@ -1,6 +1,6 @@
 # Aether — Technical Architecture
 
-> Living document. Updated with each phase completion. Last updated: Phase 10.
+> Living document. Updated with each phase completion. Last updated: Phase 14.
 
 ---
 
@@ -206,7 +206,7 @@ OutboxRelayScheduler (@Scheduled every 5s)
 
 ## Data Model
 
-### Core Tables (Flyway migrations V001–V009)
+### Core Tables (Flyway migrations V001–V012)
 
 ```
 tenants
@@ -291,6 +291,19 @@ outbox_events
   created_at TIMESTAMP
   published_at TIMESTAMP
   -- Partial index on (published = false) for efficient relay queries
+
+agent_feedback                        -- V012
+  id UUID PK
+  tenant_id UUID
+  agent_type VARCHAR
+  decision_id UUID
+  original_decision VARCHAR           -- ALLOW | BLOCK | ALERT | SUGGEST | DEFER
+  original_confidence FLOAT
+  outcome VARCHAR                     -- CORRECT | INCORRECT | PARTIALLY_CORRECT | UNKNOWN
+  outcome_detail TEXT
+  recorded_at TIMESTAMP
+  -- RLS policy: current_setting('app.tenant_id', true)
+  -- Index on (tenant_id, agent_type) for performance stats queries
 ```
 
 ### Vector Index
@@ -395,6 +408,7 @@ OrchestrationResult returned
 | `HallucinationDetectorAgent` | `HALLUCINATION_DETECTION` | 7 | Validates LLM outputs against memory patterns; defaults ALERT when LLM unavailable |
 | `TemporalPredictionAgent` | `TEMPORAL_PREDICTION` | 10 | Analyses EPISODIC/SEMANTIC memory counts; fast-path DEFER for zero memories; LLM ALERT/DEFER |
 | `ReflectionAgent` | `REFLECTION` | 10 | Health score = `proceduralCount / (total + 1)`; fast-path ALLOW when ≥ 0.5; LLM SUGGEST/DEFER |
+| `SelfImprovingAgent` | `SELF_IMPROVEMENT` | 13 | Reads `AgentFeedback` history; builds LLM prompt with outcome stats; returns improvement suggestions as SUGGEST decisions |
 
 ---
 
@@ -481,4 +495,205 @@ AetherGrid's development environment is governed by [eeik-bootstrap](https://git
 
 ---
 
-*Next: [Roadmap](roadmap.md) · [Progress](progress.md)*
+## CI/CD Pipeline
+
+### GitHub Actions — CI Workflow (`.github/workflows/ci.yml`)
+
+Triggers on every push to every branch. Runs a single `build` job with a 20-minute timeout.
+
+Key steps:
+1. Checkout with `actions/checkout` (SHA-pinned)
+2. `actions/setup-java` with Temurin 21 distribution and Maven cache
+3. Spin up `pgvector/pgvector:pg16` as a service container — exposes PostgreSQL on port 5432 so integration tests connect to a real database without a separate Docker Compose step
+4. `mvn --no-transfer-progress verify -pl !aether-infra` — compiles all modules, runs unit and integration tests, enforces the JaCoCo 80% line coverage gate
+5. Upload Surefire XML reports and JaCoCo HTML reports as artifacts (7-day retention)
+
+All action references are pinned to full commit SHAs. `permissions: contents: read` is set at the job level (least-privilege).
+
+### GitHub Actions — Quality Gate Workflow (`.github/workflows/quality-gate.yml`)
+
+Triggers on pull requests targeting `main` only. Two parallel jobs:
+
+| Job | Timeout | What it does |
+|---|---|---|
+| `checkstyle` | 15 min | Runs `mvn checkstyle:check` against `google_checks.xml` via `maven-checkstyle-plugin:3.6.0`; fails the build on any violation |
+| `dependency-audit` | 30 min | OWASP Dependency Check with `failBuildOnCVSS=9`; uploads HTML report as artifact (14-day retention); accepted false positives suppressed via `.github/owasp-suppressions.xml` |
+
+The `maven-checkstyle-plugin:3.6.0` is declared in the parent `pom.xml` `pluginManagement` block so all modules inherit the same configuration without repeating it.
+
+### Kubernetes Deployment (`aether-infra/k8s/`)
+
+Apply the full manifests with:
+
+```bash
+kubectl apply -f aether-infra/k8s/
+```
+
+**Namespace:** `aether-grid` — all resources live in this namespace. Create it first or include `namespace.yaml` at the top of the apply list.
+
+**Security posture (both Deployments):**
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+```
+
+A `/tmp` `emptyDir` volume is mounted to provide the JVM a writable temp directory while keeping the root filesystem read-only.
+
+**HPA ranges:**
+
+| Service | Min replicas | Max replicas | Scale trigger |
+|---|---|---|---|
+| `aether-api` | 2 | 8 | CPU utilisation ≥ 70% |
+| `aether-proxy` | 2 | 16 | CPU utilisation ≥ 70% |
+
+The data plane (`aether-proxy`) has a higher ceiling because it handles all inbound API traffic. The control plane (`aether-api`) is admin-only and scales more conservatively.
+
+**Liveness and readiness probes** target Spring Boot Actuator endpoints:
+- Liveness: `GET /actuator/health/liveness` — restarts the container if the JVM is stuck
+- Readiness: `GET /actuator/health/readiness` — gates traffic until the application context is fully started and all downstream dependencies are reachable
+
+### Secret Management
+
+`aether-infra/k8s/secrets-template.yaml` documents every required `Secret` key without embedding any value:
+
+| Key | Consumed by |
+|---|---|
+| `postgres-url` | Both Deployments |
+| `postgres-user` | Both Deployments |
+| `postgres-password` | Both Deployments |
+| `redis-url` | `aether-proxy` |
+| `groq-api-key` | Both Deployments (when `AETHER_LLM_PROVIDER=groq`) |
+| `anthropic-api-key` | Both Deployments (when `AETHER_LLM_PROVIDER=anthropic`) |
+
+Operators populate these via their preferred secrets injection mechanism: External Secrets Operator (recommended for production), AWS Secrets Manager, HashiCorp Vault, or `kubectl create secret generic`. The template file is committed; actual values are never committed.
+
+Non-sensitive runtime configuration (Kafka bootstrap servers, JWT issuer, LLM provider selection, rate-limit settings) is in a `ConfigMap` per service and is safe to version-control.
+
+---
+
+## Self-Improving Agent Feedback Loop
+
+### Purpose
+
+The feedback loop gives operators a way to tell the system whether an agent decision was correct after the fact. Over time this history drives LLM-powered self-improvement suggestions reviewed on a weekly schedule.
+
+### Domain Model (`aether-core`)
+
+```
+DecisionOutcome (enum)
+  CORRECT | INCORRECT | PARTIALLY_CORRECT | UNKNOWN
+
+AgentFeedback (record)
+  id UUID
+  tenantId TenantId
+  agentType String
+  decisionId UUID               -- references agent_decisions.id
+  originalDecision AgentDecision
+  originalConfidence double
+  outcome DecisionOutcome
+  outcomeDetail String          -- free-text operator note
+  recordedAt Instant
+
+AgentFeedbackPort (interface)
+  record(AgentFeedback) → void
+  findByAgentType(TenantId, String agentType) → List<AgentFeedback>
+  getPerformanceStats(TenantId) → Map<String, Object>
+```
+
+`AgentFeedbackPort` is defined in `aether-core` (pure Java, no Spring dependency). `JdbcAgentFeedbackRepository` in `aether-api` is the adapter.
+
+### Database (`V012__agent_feedback.sql`)
+
+The `agent_feedback` table mirrors the record above. Row-level security uses `current_setting('app.tenant_id', true)` — the same policy pattern applied to all other tenant-scoped tables. A composite index on `(tenant_id, agent_type)` makes performance stats queries efficient.
+
+### SelfImprovingAgent (`aether-agents`)
+
+`SelfImprovingAgent` implements `Agent` with capability `SELF_IMPROVEMENT`. When invoked:
+
+1. Reads `AgentFeedback` history for the agent type from `AgentFeedbackPort`
+2. Computes outcome statistics (correct/incorrect/partial ratios)
+3. Builds a structured LLM prompt with the statistics and a sample of recent decisions
+4. Parses the LLM response into improvement suggestions
+5. Returns the suggestions as a `SUGGEST` decision with a rationale string
+
+The confidence gate still applies: a `BLOCK` suggestion from this agent with confidence < 0.8 requires human review. `SUGGEST` decisions are informational and never auto-enforced.
+
+### AgentLearningService (`aether-api`)
+
+`AgentLearningService` is annotated `@Scheduled` with a weekly trigger. On each run it:
+
+1. Loads all active tenant IDs
+2. For each tenant, constructs an `AgentInput` targeting `SELF_IMPROVEMENT` capability
+3. Invokes the `AgentOrchestrator`, which dispatches to `SelfImprovingAgent`
+4. Persists the resulting suggestions to `audit_log` via `AuditLogService` for operator review
+
+`LearningConfig` provides the `@Configuration` wiring for this service.
+
+### API Endpoints (`AgentController`)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/tenants/{tenantId}/agents/feedback` | Record a `DecisionOutcome` for a past decision. Body: `FeedbackRequest` DTO (agentType, decisionId, originalDecision, originalConfidence, outcome, outcomeDetail). Requires JWT. |
+| `GET` | `/api/v1/tenants/{tenantId}/agents/performance` | Returns per-agent-type performance statistics (correct/incorrect/partial counts and ratios) for the tenant. Requires JWT. |
+
+---
+
+## Dashboard and Control Center
+
+### Purpose
+
+The operator dashboard gives visibility into system health, agent activity, memory distribution, and recent decisions without requiring authentication. It is a zero-dependency static HTML file served directly from the `aether-api` process.
+
+### DashboardStatsService (`aether-api`)
+
+`DashboardStatsService` runs direct `NamedParameterJdbcTemplate` queries against the following tables and returns the results as `Map<String, Object>` structures suitable for JSON serialization:
+
+| Query target | What is returned |
+|---|---|
+| `tenants` | Total active tenant count |
+| `memory_embeddings` | Total memory count; count and avg strength grouped by `memory_type` |
+| `policies` | Count of ACTIVE policies |
+| `agent_decisions` | Total decisions in last 7 days; count grouped by `agent_type` and `decision` |
+| `audit_log` | Total audit events in last 7 days |
+| `AgentRegistry.registeredTypes()` | Flat list of all registered agent type names |
+
+### DashboardController (`aether-api`)
+
+All endpoints are under `/dashboard/**` and are permitted without authentication (`SecurityConfig` `permitAll()` matcher).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/dashboard/stats` | System-wide snapshot: tenant count, total memories, active policies, decisions last 7 days, audit events last 7 days |
+| `GET` | `/dashboard/decisions` | Recent agent decisions list. `?limit=20` query param (default 20). Returns agent type, decision, confidence, rationale, decided_at |
+| `GET` | `/dashboard/memory-breakdown` | Memory type distribution: type, count, avg strength |
+| `GET` | `/dashboard/agent-breakdown` | Per-agent decision counts for the last 7 days |
+| `GET` | `/dashboard/agents` | Flat list of registered agent types from `AgentRegistry.registeredTypes()` |
+| `GET` | `/dashboard/stream` | Server-Sent Events endpoint. Emits a single stats snapshot on connect. Clients reconnect every 10 seconds for live updates |
+
+### dashboard.html SPA (`aether-api/src/main/resources/static/`)
+
+The dashboard is a self-contained single-page application with no external dependencies (no CDN, no build tool):
+
+- Dark enterprise theme matching the `docs/index.html` color palette
+- Stat cards refresh every 10 seconds via `setInterval` + `fetch(/dashboard/stats)`
+- Agent registry table populated from `GET /dashboard/agents`
+- Memory type breakdown table from `GET /dashboard/memory-breakdown`
+- Agent decision breakdown table from `GET /dashboard/agent-breakdown`
+- Scrollable recent decisions table from `GET /dashboard/decisions?limit=20`
+- SSE live panel consuming `GET /dashboard/stream`; reconnects automatically on disconnect
+
+Served by Spring Boot's default static resource handler at `http://localhost:8081/dashboard.html`. No authentication required — the endpoint is explicitly listed in `SecurityConfig.permitAll()`.
+
+### Security Posture
+
+`SecurityConfig` was updated to add `/dashboard/**` and `/*.html` to the `permitAll()` matcher list. The dashboard exposes only aggregate, non-PII statistics. Individual API call payloads, raw memory content, and tenant API keys are never surfaced.
+
+---
+
+*See [Roadmap](roadmap.md) · [Progress](progress.md)*

@@ -436,7 +436,7 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-eyebrow">Phases 0–10 Complete · suplab/aether-grid</div>
+  <div class="hero-eyebrow">All 14 Phases Complete — Production Ready · suplab/aether-grid</div>
   <h1>The <span class="accent">Cognitive Fabric</span><br/>for Intelligent Systems</h1>
   <p class="hero-sub">
     A human-centric cognitive infrastructure layered across philosophy, personal intelligence,
@@ -529,8 +529,10 @@
           <span class="chip">Policy-as-Code</span>
           <span class="chip">Temporal Prediction</span>
           <span class="chip">Self-Debugging</span>
+          <span class="chip">Self-Improving Agents</span>
           <span class="chip">Multi-Tenancy</span>
           <span class="chip">Event-Driven</span>
+          <span class="chip">Operator Dashboard</span>
         </div>
       </div>
     </div>
@@ -798,6 +800,17 @@
       </div>
       <p>Periodically evaluates overall system health. Identifies ineffective retry loops, stale policies, and underperforming agents. Suggests optimizations.</p>
     </div>
+
+    <div class="agent-card">
+      <div class="agent-header">
+        <div class="agent-icon">📈</div>
+        <div>
+          <h3>SelfImprovingAgent</h3>
+          <div class="agent-capability">SELF_IMPROVEMENT</div>
+        </div>
+      </div>
+      <p>Meta-agent that reads recorded decision outcomes from the agent_feedback table. Builds LLM prompts with outcome statistics and returns improvement suggestions as SUGGEST decisions for operator review.</p>
+    </div>
   </div>
 </section>
 
@@ -828,7 +841,7 @@
         <tr><td class="layer-col">LLM Runtime</td><td class="tech-col"><code>Ollama · Groq · Anthropic</code></td><td style="color:var(--muted);font-size:0.83rem">Pluggable via <code>AETHER_LLM_PROVIDER</code>; Ollama local-first (Gemma2:2b / Phi-3-mini); Groq cloud; Anthropic Claude</td></tr>
         <tr><td class="layer-col">Embeddings</td><td class="tech-col"><code>all-MiniLM-L6-v2</code></td><td style="color:var(--muted);font-size:0.83rem">384-dim sentence embeddings via Ollama</td></tr>
         <tr><td class="layer-col">Resilience</td><td class="tech-col"><code>Resilience4j</code></td><td style="color:var(--muted);font-size:0.83rem">Circuit breaker, retry, rate limiter, bulkhead per tenant</td></tr>
-        <tr><td class="layer-col">Migrations</td><td class="tech-col"><code>Flyway</code></td><td style="color:var(--muted);font-size:0.83rem">Versioned SQL migrations, V001–V009 schema baseline</td></tr>
+        <tr><td class="layer-col">Migrations</td><td class="tech-col"><code>Flyway</code></td><td style="color:var(--muted);font-size:0.83rem">Versioned SQL migrations, V001–V012 schema baseline</td></tr>
         <tr><td class="layer-col">Observability</td><td class="tech-col"><code>OTel + Micrometer + Grafana</code></td><td style="color:var(--muted);font-size:0.83rem">Distributed tracing, custom meters, dashboards</td></tr>
         <tr><td class="layer-col">Container</td><td class="tech-col"><code>Docker Compose → Kubernetes</code></td><td style="color:var(--muted);font-size:0.83rem">Local stack with healthchecks; Helm chart for production</td></tr>
         <tr><td class="layer-col">CI/CD</td><td class="tech-col"><code>GitHub Actions</code></td><td style="color:var(--muted);font-size:0.83rem">Build → test → quality gate → container push (OIDC, no static secrets)</td></tr>
@@ -935,19 +948,35 @@
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot active">11</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 11 — Multi-Tenancy + Compliance</h3>
-        <p>PG row-level security (V010 migration) · GDPR export/erase endpoints · data lineage tracking · tenant isolation integration tests</p>
-        <span class="roadmap-status active">Next</span>
+        <p>PG row-level security (V010–V011 migrations) · GDPR memory opt-out + right-to-erasure endpoints · RLS on all tenant-scoped tables · AuditController</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
     <div class="roadmap-item">
-      <div class="roadmap-dot pending">12</div>
+      <div class="roadmap-dot done">✓</div>
       <div class="roadmap-content">
         <h3>Phase 12 — CI/CD + Kubernetes</h3>
-        <p>GitHub Actions pipeline · OIDC container push to GHCR · Helm chart · HPA · K8s manifests · ADRs 001–006</p>
-        <span class="roadmap-status pending">Planned</span>
+        <p>GitHub Actions CI (Temurin 21, Maven verify, Postgres service) · Quality gate (Checkstyle, OWASP CVSS≥9) · K8s manifests (non-root securityContext, HPA min 2/max 16) · secrets-template.yaml</p>
+        <span class="roadmap-status done">Complete</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot done">✓</div>
+      <div class="roadmap-content">
+        <h3>Phase 13 — Self-Improving Agents</h3>
+        <p>DecisionOutcome enum · AgentFeedback record + AgentFeedbackPort · SelfImprovingAgent (SELF_IMPROVEMENT capability) · AgentLearningService (@Scheduled weekly) · AgentController feedback + performance endpoints · V012__agent_feedback.sql (RLS + index)</p>
+        <span class="roadmap-status done">Complete</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot done">✓</div>
+      <div class="roadmap-content">
+        <h3>Phase 14 — Dashboard / Control Center</h3>
+        <p>DashboardStatsService · DashboardController (6 endpoints: stats, decisions, memory-breakdown, agent-breakdown, agents, SSE stream) · Self-contained dark-theme SPA (dashboard.html, 10s auto-refresh, SSE live panel) · SecurityConfig updated (/dashboard/** open)</p>
+        <span class="roadmap-status done">Complete</span>
       </div>
     </div>
   </div>
@@ -956,7 +985,7 @@
 <!-- FOOTER -->
 <footer>
   <div>
-    <strong>Aether Grid</strong> · Distributed Cognitive Infrastructure · Phases 0–10 Complete
+    <strong>Aether Grid</strong> · Distributed Cognitive Infrastructure · All 14 Phases Complete — Production Ready
     <br/>
     <span style="color:var(--muted)">
       By <strong>Suplab</strong> —

@@ -6,6 +6,8 @@ import com.suplab.aether.core.domain.MemoryType;
 import com.suplab.aether.core.domain.TenantId;
 import com.suplab.aether.core.ports.EmbeddingPort;
 import com.suplab.aether.core.ports.MemoryStore;
+import com.suplab.aether.core.ports.TenantRepository;
+import com.suplab.aether.policy.gdpr.GdprRedactionService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +22,17 @@ public class ApiCallMemoryConsumer {
 
     private final EmbeddingPort embeddingPort;
     private final MemoryStore memoryStore;
+    private final TenantRepository tenantRepository;
+    private final GdprRedactionService gdprRedactionService;
     private final ObjectMapper objectMapper;
 
-    public ApiCallMemoryConsumer(EmbeddingPort embeddingPort, MemoryStore memoryStore) {
+    public ApiCallMemoryConsumer(EmbeddingPort embeddingPort, MemoryStore memoryStore,
+                                  TenantRepository tenantRepository,
+                                  GdprRedactionService gdprRedactionService) {
         this.embeddingPort = embeddingPort;
         this.memoryStore = memoryStore;
+        this.tenantRepository = tenantRepository;
+        this.gdprRedactionService = gdprRedactionService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -43,6 +51,17 @@ public class ApiCallMemoryConsumer {
 
     private void processApiCallEvent(Map<String, Object> payload) {
         var tenantId = TenantId.of((String) payload.get("tenantId"));
+
+        var tenantOpt = tenantRepository.findById(tenantId);
+        if (tenantOpt.isEmpty()) {
+            log.info("Skipping memory storage — tenant not found tenantId={}", tenantId);
+            return;
+        }
+        if (tenantOpt.get().memoryOptOut()) {
+            log.info("Skipping memory storage — tenant has opted out of memory tenantId={}", tenantId);
+            return;
+        }
+
         var callId = UUID.fromString((String) payload.get("callId"));
         var method = (String) payload.get("method");
         var path = (String) payload.get("path");
@@ -52,7 +71,9 @@ public class ApiCallMemoryConsumer {
                 ? ((Number) payload.get("latencyMs")).longValue() : 0L;
         var outcome = (String) payload.getOrDefault("outcome", "UNKNOWN");
 
-        var textToEmbed = buildEmbeddingText(method, path, responseCode, latencyMs, outcome);
+        var rawText = buildEmbeddingText(method, path, responseCode, latencyMs, outcome);
+        var textToEmbed = gdprRedactionService.redact(rawText);
+
         float[] embedding;
         try {
             embedding = embeddingPort.embed(textToEmbed);

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether Grid — Control Center</title>
+  <style>
+    :root {
+      --bg: #0b0d14;
+      --surface: #141720;
+      --border: #1e2235;
+      --text: #e2e6f0;
+      --muted: #8b92a8;
+      --accent: #4f8ef7;
+      --green: #30d158;
+      --yellow: #ffd60a;
+      --red: #ff453a;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: rgba(11, 13, 20, 0.94);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-brand {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .header-brand .accent { color: var(--accent); }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ── LAYOUT ── */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    /* ── SECTIONS ── */
+    .section {
+      margin-bottom: 2.5rem;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+
+    .section-heading {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    /* ── STAT CARDS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value.loading {
+      color: var(--muted);
+      font-size: 1.2rem;
+    }
+
+    /* ── TABLES ── */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    thead {
+      background: var(--surface);
+    }
+
+    thead th {
+      padding: 0.65rem 1rem;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+    tbody tr:hover { background: rgba(79, 142, 247, 0.05); }
+
+    tbody td {
+      padding: 0.6rem 1rem;
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    .empty-row td {
+      text-align: center;
+      color: var(--muted);
+      font-style: italic;
+      padding: 1.5rem;
+    }
+
+    /* ── STATUS BADGES ── */
+    .badge {
+      display: inline-block;
+      padding: 0.18rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge-CORRECT, .badge-ALLOW { background: rgba(48,209,88,0.15); color: var(--green); }
+    .badge-INCORRECT, .badge-BLOCK { background: rgba(255,69,58,0.15); color: var(--red); }
+    .badge-ALERT { background: rgba(255,214,10,0.15); color: var(--yellow); }
+    .badge-SUGGEST { background: rgba(79,142,247,0.15); color: var(--accent); }
+    .badge-DEFER { background: rgba(139,146,168,0.15); color: var(--muted); }
+
+    /* ── SSE STREAM PANEL ── */
+    .stream-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .stream-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+
+    .stream-status {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .stream-data {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: var(--green);
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      padding: 0.8rem 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 60px;
+    }
+
+    /* ── TIMESTAMP ── */
+    .last-updated {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    /* ── TWO-COLUMN LAYOUT FOR LOWER SECTIONS ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 1.5rem;
+    }
+
+    /* ── DECISIONS TABLE (scrollable) ── */
+    .decisions-wrapper {
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .decisions-wrapper table { min-width: 700px; }
+
+    /* ── MUTED MONO ── */
+    .mono {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .two-col { grid-template-columns: 1fr; }
+      header { padding: 0 1rem; }
+      .page { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <span class="accent">Aether</span> Grid &mdash; Control Center
+  </div>
+  <div class="live-indicator">
+    <div class="pulse-dot"></div>
+    <span>Live</span>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- System Overview -->
+  <div class="section" id="section-overview">
+    <div class="section-title">System Overview</div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-label">Active Tenants</div><div class="stat-value loading" id="stat-activeTenants">...</div></div>
+      <div class="stat-card"><div class="stat-label">Total Memories</div><div class="stat-value loading" id="stat-totalMemories">...</div></div>
+      <div class="stat-card"><div class="stat-label">Active Policies</div><div class="stat-value loading" id="stat-activePolicies">...</div></div>
+      <div class="stat-card"><div class="stat-label">Decisions (24h)</div><div class="stat-value loading" id="stat-decisionsLast24h">...</div></div>
+      <div class="stat-card"><div class="stat-label">Audit Events (24h)</div><div class="stat-value loading" id="stat-auditEventsLast24h">...</div></div>
+    </div>
+    <div class="last-updated" id="stats-updated"></div>
+  </div>
+
+  <!-- Two Column: Agent Registry + Memory Breakdown -->
+  <div class="two-col">
+
+    <!-- Agent Registry -->
+    <div class="section" id="section-agents">
+      <div class="section-title">Agent Registry</div>
+      <div class="table-wrapper" id="agents-table-wrapper">
+        <table>
+          <thead><tr><th>#</th><th>Agent Type</th></tr></thead>
+          <tbody id="agents-tbody"><tr class="empty-row"><td colspan="2">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Memory Type Breakdown -->
+    <div class="section" id="section-memory">
+      <div class="section-title">Memory Type Breakdown</div>
+      <div class="table-wrapper" id="memory-table-wrapper">
+        <table>
+          <thead><tr><th>Type</th><th>Count</th><th>Avg Strength</th></tr></thead>
+          <tbody id="memory-tbody"><tr class="empty-row"><td colspan="3">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Agent Decision Breakdown -->
+  <div class="section" id="section-agent-breakdown">
+    <div class="section-title">Agent Decision Breakdown — Last 7 Days</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent Type</th>
+            <th>Decision</th>
+            <th>Count</th>
+            <th>Avg Confidence</th>
+          </tr>
+        </thead>
+        <tbody id="agent-breakdown-tbody"><tr class="empty-row"><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent Decisions -->
+  <div class="section" id="section-decisions">
+    <div class="section-title">Recent Agent Decisions</div>
+    <div class="table-wrapper decisions-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Tenant</th>
+            <th>Agent</th>
+            <th>Decision</th>
+            <th>Confidence</th>
+            <th>Auto-Enforced</th>
+            <th>Rationale</th>
+          </tr>
+        </thead>
+        <tbody id="decisions-tbody"><tr class="empty-row"><td colspan="7">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Live Event Stream -->
+  <div class="section" id="section-stream">
+    <div class="section-title">Live Event Stream</div>
+    <div class="stream-panel">
+      <div class="stream-header">
+        <span style="font-size:0.85rem; font-weight:600;">Last SSE Snapshot</span>
+        <span class="stream-status" id="stream-status">Connecting...</span>
+      </div>
+      <div class="stream-data" id="stream-data">Waiting for event...</div>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function fmt(ts) {
+    if (!ts) return '';
+    try { return new Date(ts).toLocaleString(); } catch (_) { return ts; }
+  }
+
+  function pct(confidence) {
+    if (confidence == null) return '';
+    return (parseFloat(confidence) * 100).toFixed(1) + '%';
+  }
+
+  function esc(value) {
+    if (value == null) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function decisionBadge(decision) {
+    var d = esc(decision || '');
+    return '<span class="badge badge-' + d + '">' + d + '</span>';
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+
+  function renderStats(data) {
+    var fields = ['activeTenants', 'totalMemories', 'activePolicies', 'decisionsLast24h', 'auditEventsLast24h'];
+    fields.forEach(function(key) {
+      var el = document.getElementById('stat-' + key);
+      if (el) {
+        el.textContent = data[key] != null ? data[key] : 'N/A';
+        el.classList.remove('loading');
+      }
+    });
+    var updatedEl = document.getElementById('stats-updated');
+    if (updatedEl && data.timestamp) {
+      updatedEl.textContent = 'Last updated: ' + fmt(data.timestamp);
+    }
+  }
+
+  // ── Tables ─────────────────────────────────────────────────────────────────
+
+  function renderAgents(rows) {
+    var tbody = document.getElementById('agents-tbody');
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="2">No agents registered</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(type, i) {
+      return '<tr><td class="mono">' + (i + 1) + '</td><td>' + esc(type) + '</td></tr>';
+    }).join('');
+  }
+
+  function renderMemoryBreakdown(rows) {
+    var tbody = document.getElementById('memory-tbody');
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="3">No memory data</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      return '<tr>'
+        + '<td>' + esc(r.memory_type) + '</td>'
+        + '<td>' + esc(r.count) + '</td>'
+        + '<td class="mono">' + esc(r.avg_strength) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderAgentBreakdown(rows) {
+    var tbody = document.getElementById('agent-breakdown-tbody');
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No decision data for last 7 days</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      return '<tr>'
+        + '<td>' + esc(r.agent_type) + '</td>'
+        + '<td>' + decisionBadge(r.decision) + '</td>'
+        + '<td>' + esc(r.count) + '</td>'
+        + '<td class="mono">' + pct(r.avg_confidence) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderDecisions(rows) {
+    var tbody = document.getElementById('decisions-tbody');
+    if (!tbody) return;
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No recent decisions</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      var autoEnforced = r.auto_enforced === true || r.auto_enforced === 'true'
+        ? '<span style="color:var(--green)">Yes</span>'
+        : '<span style="color:var(--muted)">No</span>';
+      return '<tr>'
+        + '<td class="mono" style="white-space:nowrap">' + fmt(r.created_at) + '</td>'
+        + '<td class="mono" style="font-size:0.75rem">' + esc(r.tenant_id) + '</td>'
+        + '<td>' + esc(r.agent_type) + '</td>'
+        + '<td>' + decisionBadge(r.decision) + '</td>'
+        + '<td class="mono">' + pct(r.confidence) + '</td>'
+        + '<td>' + autoEnforced + '</td>'
+        + '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.rationale) + '">'
+          + esc(r.rationale) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  // ── Fetch helpers ──────────────────────────────────────────────────────────
+
+  function setError(tbodyId, cols, msg) {
+    var tbody = document.getElementById(tbodyId);
+    if (tbody) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="' + cols + '">' + esc(msg) + '</td></tr>';
+    }
+  }
+
+  async function safeFetch(url) {
+    try {
+      var resp = await fetch(url, { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return await resp.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ── Main refresh ───────────────────────────────────────────────────────────
+
+  async function fetchAndRender() {
+    // Stats
+    var stats = await safeFetch('/dashboard/stats');
+    if (stats) {
+      renderStats(stats);
+    } else {
+      var fields = ['activeTenants', 'totalMemories', 'activePolicies', 'decisionsLast24h', 'auditEventsLast24h'];
+      fields.forEach(function(key) {
+        var el = document.getElementById('stat-' + key);
+        if (el) { el.textContent = 'Unavailable'; el.classList.add('loading'); }
+      });
+    }
+
+    // Agents
+    var agents = await safeFetch('/dashboard/agents');
+    if (agents !== null) {
+      renderAgents(agents);
+    } else {
+      setError('agents-tbody', 2, 'Unavailable');
+    }
+
+    // Memory breakdown
+    var memBreakdown = await safeFetch('/dashboard/memory-breakdown');
+    if (memBreakdown !== null) {
+      renderMemoryBreakdown(memBreakdown);
+    } else {
+      setError('memory-tbody', 3, 'Unavailable');
+    }
+
+    // Agent decision breakdown
+    var agentBreakdown = await safeFetch('/dashboard/agent-breakdown');
+    if (agentBreakdown !== null) {
+      renderAgentBreakdown(agentBreakdown);
+    } else {
+      setError('agent-breakdown-tbody', 4, 'Unavailable');
+    }
+
+    // Recent decisions
+    var decisions = await safeFetch('/dashboard/decisions?limit=20');
+    if (decisions !== null) {
+      renderDecisions(decisions);
+    } else {
+      setError('decisions-tbody', 7, 'Unavailable');
+    }
+  }
+
+  // ── SSE Stream ─────────────────────────────────────────────────────────────
+
+  function connectStream() {
+    var statusEl = document.getElementById('stream-status');
+    var dataEl = document.getElementById('stream-data');
+
+    var es = new EventSource('/dashboard/stream');
+
+    es.addEventListener('stats', function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        dataEl.textContent = JSON.stringify(data, null, 2);
+        if (statusEl) statusEl.textContent = 'Updated: ' + new Date().toLocaleTimeString();
+      } catch (_) {
+        dataEl.textContent = e.data;
+      }
+      es.close();
+    });
+
+    es.onerror = function() {
+      if (statusEl) statusEl.textContent = 'Reconnecting...';
+      es.close();
+    };
+
+    es.onopen = function() {
+      if (statusEl) statusEl.textContent = 'Connected';
+    };
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+
+  fetchAndRender();
+  connectStream();
+
+  // Refresh data every 10 seconds
+  setInterval(fetchAndRender, 10000);
+  // Reconnect SSE every 10 seconds (server sends one snapshot then closes)
+  setInterval(connectStream, 10000);
+</script>
+</body>
+</html>

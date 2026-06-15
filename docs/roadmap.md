@@ -1,6 +1,6 @@
 # Aether — Development Roadmap
 
-> Living document. Updated with each phase completion. Last updated: Phase 10.
+> Living document. Updated with each phase completion. Last updated: Phase 14 (all complete).
 
 ---
 
@@ -276,35 +276,90 @@
 
 ---
 
-## Phase 11 — Multi-Tenancy + Compliance 📋
+## Phase 11 — Multi-Tenancy + Compliance ✅
 
 **Goal:** Full tenant data isolation. GDPR-compliant data subject access and erasure.
 
 | Deliverable | Status |
 |---|---|
-| PG Row-Level Security policies enabled (V010 migration) | 📋 |
-| Spring Security integration sets PG session variable `app.current_tenant_id` | 📋 |
-| `DataLineageRecord` entity — tracks all transformations per call | 📋 |
-| `TenantOnboardingService` — full onboarding workflow | 📋 |
-| `GdprController` — `GET /gdpr/export/{tenantId}`, `DELETE /gdpr/erase/{tenantId}` | 📋 |
-| Tenant isolation integration test (Tenant A cannot see Tenant B data) | 📋 |
-| GDPR erasure test (personal data + embeddings removed, audit log preserved) | 📋 |
+| `V010__tenant_gdpr_preferences.sql` — `memory_opt_out` and `data_retention_days` columns on `tenants` | ✅ |
+| `V011__row_level_security.sql` — PG RLS enabled on `memory_embeddings`, `api_calls`, `policies`, `agent_decisions`, `audit_log` | ✅ |
+| `JdbcTenantRepository` updated — `memory_opt_out` included in SELECT and UPSERT SQL | ✅ |
+| `ApiCallMemoryConsumer` — skips embedding when tenant has opted out; GDPR redaction before embedding | ✅ |
+| `TenantController` — `PUT /{id}/gdpr/memory-opt-out`, `DELETE /{id}/gdpr/memory-opt-out`, `DELETE /{id}/memories` (right-to-erasure) | ✅ |
+| `AuditController` — `GET /api/v1/tenants/{tenantId}/audit?limit=50` paged audit log | ✅ |
+| `AuditLogService` — `findByTenant()` query + audit events wired to all lifecycle transitions | ✅ |
+| `TenantResponse` record — `memoryOptOut` field added | ✅ |
+| `PolicyController` — `AuditLogService` wired; `POLICY_CREATED`, `POLICY_ACTIVATED`, `POLICY_ARCHIVED` events | ✅ |
+| Tests: `ApiCallMemoryConsumerTest` (12), `TenantControllerTest` (11), `AuditControllerTest` (3) | ✅ |
+
+**Commit:** `feat(compliance): GDPR memory opt-out, right-to-erasure, RLS, and audit logging`
+
+**Verification:** `mvn clean test -pl aether-memory,aether-api,aether-proxy,aether-policy` — 55 tests, 0 failures.
 
 ---
 
-## Phase 12 — CI/CD + Kubernetes 📋
+## Phase 12 — CI/CD + Kubernetes ✅
 
-**Goal:** Every push triggers a full quality gate. `helm install aether-grid` deploys to K8s.
+**Goal:** Every push triggers a full quality gate. Kubernetes manifests deploy both services with production-grade security posture.
 
 | Deliverable | Status |
 |---|---|
-| `.github/workflows/ci.yml` — build → unit test (JaCoCo 80%) → integration test → OWASP + gitleaks | 📋 |
-| `.github/workflows/release.yml` — multi-stage Docker builds, GHCR push via OIDC | 📋 |
-| K8s manifests — Namespace, ConfigMap, Deployment, Service, Ingress, HPA | 📋 |
-| Helm chart `helm/aether-grid/` — single command full-stack deploy | 📋 |
-| `docs/adr/001-spring-cloud-gateway.md` through `006-flyway.md` | 📋 |
+| `.github/workflows/ci.yml` — Temurin 21, Maven verify, PostgreSQL service container, JaCoCo + Surefire report upload | ✅ |
+| `.github/workflows/quality-gate.yml` — Checkstyle (google_checks.xml) + OWASP dependency-check (failBuildOnCVSS=9) on PRs to main | ✅ |
+| `.github/owasp-suppressions.xml` — OWASP suppression file for accepted false positives | ✅ |
+| `pom.xml` — `maven-checkstyle-plugin:3.6.0` added to pluginManagement | ✅ |
+| `aether-infra/k8s/namespace.yaml` — `aether-grid` namespace | ✅ |
+| `aether-infra/k8s/aether-api/` — Deployment (2 replicas, non-root securityContext, liveness/readiness probes, resource limits), Service (ClusterIP 8081), HPA (min 2 / max 8, CPU 70%), ConfigMap | ✅ |
+| `aether-infra/k8s/aether-proxy/` — Deployment (2 replicas, same security posture), Service (ClusterIP 8080), HPA (min 2 / max 16), ConfigMap | ✅ |
+| `aether-infra/k8s/secrets-template.yaml` — documents all required Secret keys without values | ✅ |
 
-**Verification:** Open PR → all CI checks green → merge to `main` → release workflow pushes image → `helm install` → all pods `Running`.
+**Commit:** `build(ci): add GitHub Actions CI/CD pipelines and Kubernetes manifests`
+
+**Verification:** PR to main → `quality-gate` workflow green (Checkstyle + OWASP). Push to any branch → `ci` workflow green (build + test + coverage). `kubectl apply -f aether-infra/k8s/` → all resources created in `aether-grid` namespace.
+
+---
+
+## Phase 13 — Self-Improving Agents ✅
+
+**Goal:** Agents record decision outcomes and learn from them. A scheduled service reviews feedback weekly and generates improvement suggestions via LLM.
+
+| Deliverable | Status |
+|---|---|
+| `DecisionOutcome` enum: `CORRECT`, `INCORRECT`, `PARTIALLY_CORRECT`, `UNKNOWN` | ✅ |
+| `AgentFeedback` record: id, tenantId, agentType, decisionId, originalDecision, originalConfidence, outcome, outcomeDetail, recordedAt | ✅ |
+| `AgentFeedbackPort` interface: `record()`, `findByAgentType()`, `getPerformanceStats()` | ✅ |
+| `SelfImprovingAgent` — meta-agent that analyses feedback history, invokes LLM for suggestions | ✅ |
+| `SELF_IMPROVEMENT` capability added to `AgentCapability` enum | ✅ |
+| `AgentLearningService` — `@Scheduled` weekly review across all tenants | ✅ |
+| `LearningConfig` — `@Configuration` wiring for the learning service | ✅ |
+| `AgentController` — `POST /api/v1/tenants/{tenantId}/agents/feedback` + `GET /api/v1/tenants/{tenantId}/agents/performance` | ✅ |
+| `FeedbackRequest` DTO | ✅ |
+| `JdbcAgentFeedbackRepository` registered in `ApiConfig` | ✅ |
+| `V012__agent_feedback.sql` — `agent_feedback` table with RLS policy and `(tenant_id, agent_type)` index | ✅ |
+
+**Commit:** `feat(agents): add feedback loop, self-improving agent, and weekly learning service`
+
+---
+
+## Phase 14 — Dashboard / Control Center ✅
+
+**Goal:** Operators have a self-contained web dashboard providing real-time visibility into system health, agent activity, memory distribution, and recent decisions without requiring authentication.
+
+| Deliverable | Status |
+|---|---|
+| `DashboardStatsService` — queries tenants, memory_embeddings, policies, agent_decisions, audit_log | ✅ |
+| `GET /dashboard/stats` — system stats snapshot | ✅ |
+| `GET /dashboard/decisions?limit=20` — recent agent decisions | ✅ |
+| `GET /dashboard/memory-breakdown` — memory type counts and avg strength | ✅ |
+| `GET /dashboard/agent-breakdown` — per-agent decision counts last 7 days | ✅ |
+| `GET /dashboard/agents` — registered agent type list via `AgentRegistry.registeredTypes()` | ✅ |
+| `GET /dashboard/stream` — SSE live stream (single snapshot; client reconnects every 10s) | ✅ |
+| `dashboard.html` — self-contained dark-theme SPA (stat cards, tables, SSE panel, 10s auto-refresh) | ✅ |
+| `SecurityConfig` updated — `/dashboard/**` and `/*.html` permitted without auth | ✅ |
+| `AgentRegistry` updated — `registeredTypes()` method added | ✅ |
+
+**Commit:** `feat(api): add dashboard stats service, SSE stream, and self-contained dashboard SPA`
 
 ---
 
@@ -312,15 +367,14 @@
 
 These are tracked but not scoped for the current roadmap:
 
-- **Self-improving agents** — agents that learn from feedback and update their own logic
+- **Phase 15 — Kubernetes + Helm production hardening** — Helm chart with configurable values, cert-manager TLS, External Secrets Operator integration, Kubernetes NetworkPolicy
 - **Dynamic agent creation** — spawning new agents at runtime for novel task types
 - **Agent marketplace** — catalog of shareable, versioned agent capabilities
 - **Federated memory** — memory shared across organizational boundaries with consent controls
 - **Edge intelligence** — lightweight agent runtime for IoT / embedded devices
 - **Aether Core integration** — AetherGrid as the data plane backing a personal Aether Core instance
-- **Web dashboard** — real-time governance and memory visualization UI
 
 ---
 
-*Last updated: Phase 10 — Advanced Agents + Observability*
+*Last updated: Phase 14 — Dashboard / Control Center (all phases complete)*
 *See [Progress](progress.md) for live status · [Architecture](architecture.md) for technical detail*

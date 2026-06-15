@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aether-api-config
+  namespace: aether-grid
+  labels:
+    app.kubernetes.io/name: aether-api
+    app.kubernetes.io/part-of: aether-grid
+    app.kubernetes.io/component: control-plane
+data:
+  kafka-bootstrap-servers: "kafka:9092"
+  jwt-issuer: "https://auth.suplab.io"
+  llm-provider: "ollama"
+  spring-profiles-active: "prod"

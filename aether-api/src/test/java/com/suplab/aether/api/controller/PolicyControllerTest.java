@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.suplab.aether.api.dto.PolicyRequest;
 import com.suplab.aether.core.domain.TenantId;
 import com.suplab.aether.core.ports.PolicyRepository;
+import com.suplab.aether.policy.audit.AuditLogService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -34,6 +35,9 @@ class PolicyControllerTest {
 
     @MockBean
     private PolicyRepository policyRepository;
+
+    @MockBean
+    private AuditLogService auditLogService;
 
     private static final UUID TENANT_UUID = UUID.randomUUID();
     private static final UUID POLICY_UUID = UUID.randomUUID();

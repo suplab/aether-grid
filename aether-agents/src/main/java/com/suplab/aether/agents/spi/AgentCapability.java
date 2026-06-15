@@ -7,5 +7,6 @@ public enum AgentCapability {
     POLICY_DRIFT,
     TEMPORAL_PREDICTION,
     REFLECTION,
-    EMBEDDING
+    EMBEDDING,
+    SELF_IMPROVEMENT
 }
