@@ -1,6 +1,6 @@
 # Aether — Technical Architecture
 
-> Living document. Updated with each phase completion. Last updated: Phase 10.
+> Living document. Updated with each phase completion. Last updated: Phase 12.
 
 ---
 

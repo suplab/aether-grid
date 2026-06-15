@@ -6,7 +6,7 @@
 
 ## Current Status
 
-**Active Phase:** All phases complete
+**Active Phase:** All 12 phases complete
 **Branch:** `claude/enterprise-app-planning-setup-whtxmu`
 **Last Updated:** 2026-06-15
 
@@ -28,7 +28,7 @@
 | 9 | Admin REST API + Observability | ✅ Complete | 1 |
 | 10 | Advanced Agents + Observability | ✅ Complete | 1 |
 | 11 | Multi-Tenancy + Compliance | ✅ Complete | 1 |
-| 12 | CI/CD + Kubernetes | 📋 Planned | — |
+| 12 | CI/CD + Kubernetes | ✅ Complete | 1 |
 
 ---
 
@@ -357,9 +357,50 @@
 
 ---
 
-## Phase 12 — CI/CD + Kubernetes 📋
+## Phase 12 — CI/CD + Kubernetes ✅
 
-_Not yet started._
+**Commit:** `build(ci): add GitHub Actions CI/CD pipelines and Kubernetes manifests`
+
+### What was done
+
+**GitHub Actions workflows:**
+- `.github/workflows/ci.yml` — Runs on every push and PR to `main`. Single `build` job (20-minute timeout) with `permissions: contents: read`. Spins up a `pgvector/pgvector:pg16` service container for integration tests. Runs `mvn --no-transfer-progress verify -pl !aether-infra` with Temurin 21 and Maven cache. Uploads surefire test reports and JaCoCo coverage reports as artifacts (7-day retention). All action versions pinned to full SHA.
+- `.github/workflows/quality-gate.yml` — Runs on PRs to `main` only. Two parallel jobs: `checkstyle` (15-minute timeout) runs `mvn checkstyle:check` against Google Checks; `dependency-audit` (30-minute timeout) runs OWASP Dependency Check with `failBuildOnCVSS=9` and uploads the HTML report as an artifact (14-day retention). Both jobs use SHA-pinned actions and `permissions: contents: read`.
+
+**Supporting files:**
+- `.github/owasp-suppressions.xml` — Empty suppressions file for accepted false positives.
+- `pom.xml` — Checkstyle plugin (`maven-checkstyle-plugin:3.6.0`) already configured in `pluginManagement` with Google Checks and `violationSeverity: warning`.
+
+**Kubernetes manifests (`aether-infra/k8s/`):**
+- `namespace.yaml` — `aether-grid` namespace with `app.kubernetes.io/part-of` label.
+- `aether-api/deployment.yaml` — 2 replicas, `ghcr.io/suplab/aether-api:latest`, port 8081, `cpu: 250m / memory: 512Mi` requests, `cpu: 1 / memory: 1Gi` limits. Liveness probe on `/actuator/health/liveness` (initialDelay 60s), readiness on `/actuator/health/readiness` (initialDelay 30s). `runAsNonRoot: true`, `runAsUser: 1000`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities: drop: ALL`. Secrets via `secretKeyRef` (postgres-url, postgres-user, postgres-password); non-secret config via `configMapKeyRef`. Zone topology spread constraint. `/tmp` emptyDir volume for JVM temp writes.
+- `aether-api/service.yaml` — ClusterIP on port 8081.
+- `aether-api/hpa.yaml` — `autoscaling/v2`, minReplicas 2, maxReplicas 8, CPU target 70%.
+- `aether-api/configmap.yaml` — `kafka-bootstrap-servers`, `jwt-issuer`, `llm-provider`, `spring-profiles-active`.
+- `aether-proxy/deployment.yaml` — Same security posture as api; port 8080, `ghcr.io/suplab/aether-proxy:latest`. Additional env vars: `REDIS_URL` from secret, `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`, `OUTBOX_RELAY_INTERVAL_MS` from configmap.
+- `aether-proxy/service.yaml` — ClusterIP on port 8080.
+- `aether-proxy/hpa.yaml` — minReplicas 2, maxReplicas 16 (higher ceiling for data-plane traffic load).
+- `aether-proxy/configmap.yaml` — Kafka bootstrap, rate-limit settings, outbox relay interval, spring profile.
+- `secrets-template.yaml` — Commented template (no actual values) for `aether-api-secrets` and `aether-proxy-secrets`; instructs operators to use External Secrets Operator or `kubectl create secret`.
+
+### Files created/modified
+
+| File | Change |
+|---|---|
+| `.github/workflows/ci.yml` | Created — build + test + artifact upload |
+| `.github/workflows/quality-gate.yml` | Created — Checkstyle + OWASP dependency check |
+| `.github/owasp-suppressions.xml` | Created — empty suppressions template |
+| `aether-infra/k8s/namespace.yaml` | Created |
+| `aether-infra/k8s/aether-api/deployment.yaml` | Created |
+| `aether-infra/k8s/aether-api/service.yaml` | Created |
+| `aether-infra/k8s/aether-api/hpa.yaml` | Created |
+| `aether-infra/k8s/aether-api/configmap.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/deployment.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/service.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/hpa.yaml` | Created |
+| `aether-infra/k8s/aether-proxy/configmap.yaml` | Created |
+| `aether-infra/k8s/secrets-template.yaml` | Created |
+| `docs/progress.md` | Updated — Phase 12 marked complete |
 
 ---
 
